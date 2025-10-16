@@ -11,6 +11,12 @@ plugins {
 private val _java = libs.versions.java.get()
 private val _javaVersion = JavaVersion.toVersion(_java)
 private val _jvmTarget = JvmTarget.fromTarget(_java)
+private val _props = Properties()
+private val _propFile = File(project.rootDir, "local.properties")
+if (_propFile.exists()) {
+    _props.load(_propFile.inputStream())
+}
+private val _apiKey = _props.getProperty("API_KEY") ?: error("Missing API_KEY in local.properties")
 
 kotlin {
     jvmToolchain(_java.toInt())
@@ -24,6 +30,9 @@ kotlin {
     jvm()
     
     sourceSets {
+        val commonMain by getting {
+            kotlin.srcDir(layout.buildDirectory.dir("generated/src"))
+        }
         commonMain.dependencies {
             implementation(libs.compose.material)
         }
@@ -40,20 +49,15 @@ android {
     namespace = libs.versions.application.namespace.get()
     compileSdk = libs.versions.android.compileSdk.get().toInt()
 
-    val props = Properties()
-    val propFile = File(project.rootDir, "local.properties")
-    if (propFile.exists()) {
-        props.load(propFile.inputStream())
-    }
     signingConfigs {
         create("release") {
-            storeFile = props.getProperty("RELEASE_KEYSTORE_FILE")?.let { file(it) }
+            storeFile = _props.getProperty("RELEASE_KEYSTORE_FILE")?.let { file(it) }
                 ?: error("Missing RELEASE_KEYSTORE_FILE in local.properties")
-            storePassword = props.getProperty("RELEASE_KEYSTORE_PASSWORD")
+            storePassword = _props.getProperty("RELEASE_KEYSTORE_PASSWORD")
                 ?: error("Missing RELEASE_KEYSTORE_PASSWORD in local.properties")
-            keyAlias = props.getProperty("RELEASE_KEY_ALIAS")
+            keyAlias = _props.getProperty("RELEASE_KEY_ALIAS")
                 ?: error("Missing RELEASE_KEY_ALIAS in local.properties")
-            keyPassword = props.getProperty("RELEASE_KEY_PASSWORD")
+            keyPassword = _props.getProperty("RELEASE_KEY_PASSWORD")
                 ?: error("Missing RELEASE_KEY_PASSWORD in local.properties")
         }
     }
@@ -104,4 +108,24 @@ compose.desktop {
             packageVersion = libs.versions.application.version.name.get()
         }
     }
+}
+
+tasks.register("generateApiKey") {
+    val outputDir = layout.buildDirectory.dir("generated/src")
+    inputs.property("apiKey", _apiKey)
+    outputs.dir(outputDir)
+
+    doLast {
+        val file = outputDir.get().asFile.resolve("io/github/sd155/aiadvent3/build/ApiKey.kt")
+        file.parentFile.mkdirs()
+        file.writeText("""
+            package io.github.sd155.aiadvent3.build
+
+            internal const val API_KEY = "$_apiKey"
+        """.trimIndent())
+    }
+}
+
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
+    dependsOn("generateApiKey")
 }
