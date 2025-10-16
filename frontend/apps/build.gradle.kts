@@ -35,6 +35,7 @@ kotlin {
         }
         commonMain.dependencies {
             implementation(libs.compose.material)
+            implementation(projects.frontend.features.chat)
         }
         androidMain.dependencies {
             implementation(libs.androidx.activity.compose)

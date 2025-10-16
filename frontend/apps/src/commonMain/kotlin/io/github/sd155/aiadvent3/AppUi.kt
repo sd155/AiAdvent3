@@ -1,15 +1,13 @@
 package io.github.sd155.aiadvent3
 
-import androidx.compose.foundation.layout.Box
 import androidx.compose.material.MaterialTheme
-import androidx.compose.material.Text
 import androidx.compose.runtime.*
+import io.github.sd155.aiadvent3.build.API_KEY
+import io.github.sd155.aiadvent3.chat.ui.ChatScreen
 
 @Composable
 internal fun FrontendAppUi() {
     MaterialTheme {
-        Box {
-            Text(text = "AI Advent 3")
-        }
+        ChatScreen(apiKey = API_KEY)
     }
 }
