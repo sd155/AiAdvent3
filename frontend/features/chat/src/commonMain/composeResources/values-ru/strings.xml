@@ -2,4 +2,5 @@
 <resources>
     <string name="prompt_hint">Спросите что-нибудь</string>
     <string name="llm_progress">Думаю..</string>
+    <string name="summary_label">Резюме</string>
 </resources> 

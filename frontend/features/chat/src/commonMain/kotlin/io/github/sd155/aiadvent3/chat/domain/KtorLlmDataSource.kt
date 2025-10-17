@@ -1,8 +1,10 @@
 package io.github.sd155.aiadvent3.chat.domain
 
+import aiadvent3.frontend.features.chat.generated.resources.Res
 import io.github.sd155.aiadvent3.utils.Result
 import io.github.sd155.aiadvent3.utils.asFailure
 import io.github.sd155.aiadvent3.utils.asSuccess
+import io.github.sd155.aiadvent3.utils.fold
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.engine.cio.CIO
@@ -16,11 +18,63 @@ import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.json.json
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
-internal class KtorLlmDataSource(apiKey: String) {
+internal class ChatAgent(
+    apiKey: String,
+    private val scope: CoroutineScope,
+) {
+    private val _llm by lazy { KtorLlmDataSource(apiKey) }
+    private val _state = MutableStateFlow(ChatAgentState())
+    internal val state: StateFlow<ChatAgentState> = _state.asStateFlow()
+
+    init { scope.launch(Dispatchers.IO) { initializeContext() } }
+
+    private suspend fun initializeContext() {
+        addToContext(LlmContextElement(
+            type = LlmContextElementType.System,
+            value = """
+            You are adviser. You should take user prompt and response with a proficient advice. Your response has to strictly follow the rules:
+            1. Valid only JSON, do not wrap it with markers, do not add extra content.
+            2. Use the given JSON scheme, do not extend the scheme. The scheme:${String(Res.readBytes("files/chat-agent-response-scheme.json"))}
+            """
+        ))
+    }
+
+    internal fun ask(prompt: String) {
+        addToContext(LlmContextElement(
+            type = LlmContextElementType.User,
+            value = prompt
+        ))
+        scope.launch(Dispatchers.IO) {
+            _llm.postChatCompletions(_state.value.context)
+                .fold(
+                    onSuccess = { element -> addToContext(element) },
+                    onFailure = { error -> _state.value = _state.value.copy(error = error) }
+                )
+        }
+    }
+
+    private fun addToContext(element: LlmContextElement) {
+        val context = _state.value.context
+        _state.value = ChatAgentState(context + element)
+    }
+}
+
+internal data class ChatAgentState(
+    val context: List<LlmContextElement> = emptyList(),
+    val error: String? = null,
+)
+
+private class KtorLlmDataSource(apiKey: String) {
     private val _httpClient by lazy {
         HttpClient(CIO) {
             install(Logging) {
@@ -54,8 +108,10 @@ internal class KtorLlmDataSource(apiKey: String) {
     ): Result<String, LlmContextElement> {
         println("postChatCompletions")
         val payload = RequestDto(
-            model = "qwen/qwen3-235b-a22b:free",
+            model = "tngtech/deepseek-r1t2-chimera:free",
             messages = context.map { it.toMessageDto() },
+            responseFormat = FormatDto(type = "json_object"),
+            provider = ProviderDto(only = listOf("chutes")),
         )
         return try {
             _httpClient
@@ -92,6 +148,22 @@ private data class RequestDto(
     val model: String,
     @SerialName("messages")
     val messages: List<MessageDto>,
+    @SerialName("response_format")
+    val responseFormat: FormatDto,
+    @SerialName("provider")
+    val provider: ProviderDto,
+)
+
+@Serializable
+private data class ProviderDto(
+    @SerialName("only")
+    val only: List<String>,
+)
+
+@Serializable
+private data class FormatDto(
+    @SerialName("type")
+    val type: String,
 )
 
 @Serializable

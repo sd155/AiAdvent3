@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "oneOf": [
+    {
+      "properties": {
+        "result": { "const": "success" },
+        "header": { "type": "string" },
+        "details": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "summary": { "type": "string" }
+      },
+      "required": ["result", "header", "details", "summary"],
+      "additionalProperties": false
+    },
+    {
+      "properties": {
+        "result": { "const": "failure" },
+        "description": { "type": "string" }
+      },
+      "required": ["result", "description"],
+      "additionalProperties": false
+    }
+  ]
+}

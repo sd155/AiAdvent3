@@ -3,6 +3,7 @@ package io.github.sd155.aiadvent3.chat.ui
 import aiadvent3.frontend.features.chat.generated.resources.Res
 import aiadvent3.frontend.features.chat.generated.resources.llm_progress
 import aiadvent3.frontend.features.chat.generated.resources.prompt_hint
+import aiadvent3.frontend.features.chat.generated.resources.summary_label
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -80,7 +81,7 @@ private fun MessageList(
             when (message) {
                 is ChatMessage.UserMessage -> LocalBubble(message.content)
                 is ChatMessage.LlmError -> RemoteError(message.content)
-                is ChatMessage.LlmMessage -> RemoteBubble(message.content)
+                is ChatMessage.LlmMessage -> RemoteBubble(message)
                 ChatMessage.LlmProgress -> RemoteLoading()
             }
             if (index < messages.size - 1)
@@ -123,7 +124,7 @@ private fun LocalBubble(content: String) =
     }
 
 @Composable
-private fun RemoteBubble(content: String) =
+private fun RemoteBubble(content: ChatMessage.LlmMessage) =
     Row(
         modifier = Modifier
             .fillMaxWidth(),
@@ -137,10 +138,45 @@ private fun RemoteBubble(content: String) =
                 .padding(16.dp)
                 .weight(2f),
         ) {
-            Text(
-                text = content,
-                color = MaterialTheme.colorScheme.secondary,
-            )
+            Column {
+                when (content) {
+                    is ChatMessage.LlmMessage.Failed -> {
+                        Text(
+                            modifier = Modifier.padding(10.dp),
+                            text = content.description,
+                            color = MaterialTheme.colorScheme.secondary,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                    is ChatMessage.LlmMessage.Succeed -> {
+                        Text(
+                            modifier = Modifier.padding(10.dp),
+                            text = content.header,
+                            color = MaterialTheme.colorScheme.secondary,
+                            style = MaterialTheme.typography.titleLarge
+                        )
+                        content.details.forEach { detail ->
+                            Text(
+                                modifier = Modifier.padding(10.dp),
+                                text = detail,
+                                color = MaterialTheme.colorScheme.secondary,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+                        Text(
+                            text = stringResource(Res.string.summary_label),
+                            color = MaterialTheme.colorScheme.secondary,
+                            style = MaterialTheme.typography.labelMedium
+                        )
+                        Text(
+                            modifier = Modifier.padding(10.dp),
+                            text = content.summary,
+                            color = MaterialTheme.colorScheme.secondary,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                }
+            }
         }
         Spacer(modifier = Modifier.weight(1f))
     }

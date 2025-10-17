@@ -2,41 +2,37 @@ package io.github.sd155.aiadvent3.chat.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import io.github.sd155.aiadvent3.chat.domain.KtorLlmDataSource
-import io.github.sd155.aiadvent3.chat.domain.LlmContextElement
+import io.github.sd155.aiadvent3.chat.domain.ChatAgent
+import io.github.sd155.aiadvent3.chat.domain.ChatAgentState
 import io.github.sd155.aiadvent3.chat.domain.LlmContextElementType
-import io.github.sd155.aiadvent3.utils.fold
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.Json
 
 internal class ChatViewModel(apiKey: String) : ViewModel() {
-    private val _llm by lazy { KtorLlmDataSource(apiKey = apiKey) }
+    private val _json =  Json {
+        ignoreUnknownKeys = true
+        isLenient = true
+        classDiscriminator = "result"
+    }
+    private val _agent by lazy { ChatAgent(apiKey = apiKey, scope = viewModelScope) }
     private val _state = MutableStateFlow(ChatViewState())
     internal val state: StateFlow<ChatViewState> = _state.asStateFlow()
 
+    init {
+        viewModelScope.launch(Dispatchers.Default) {
+            _agent.state.collect { agentState ->
+                _state.value.reduce { agentState.toChatViewState() }
+            }
+        }
+    }
+
     internal fun onViewIntent(intent: ChatViewIntent) = viewModelScope.launch(Dispatchers.Default) {
         when (intent) {
-            is ChatViewIntent.UserPrompted -> {
-                _state.value.reduce {
-                    val userMsg = ChatMessage.UserMessage(intent.prompt)
-                    copy(messages = messages + userMsg)
-                }
-                _state.value.reduce { copy(messages = messages + ChatMessage.LlmProgress) }
-                _llm.postChatCompletions(_state.value.toContext())
-                    .fold(
-                        onFailure = { error ->
-                            _state.value.reduce { copy(messages = messages - messages.last()) }
-                            _state.value.reduce { copy(messages = messages + ChatMessage.LlmError(error)) }
-                        },
-                        onSuccess = { response ->
-                            _state.value.reduce { copy(messages = messages - messages.last()) }
-                            _state.value.reduce { copy(messages = messages + ChatMessage.LlmMessage(response.value)) }
-                        }
-                    )
-            }
+            is ChatViewIntent.UserPrompted -> _agent.ask(intent.prompt)
         }
     }
 
@@ -45,18 +41,19 @@ internal class ChatViewModel(apiKey: String) : ViewModel() {
         return this
     }
 
-    private fun ChatViewState.toContext(): List<LlmContextElement> =
-        this.messages.mapNotNull { message ->
-            when (message) {
-                is ChatMessage.LlmMessage -> LlmContextElement(
-                    type = LlmContextElementType.Llm,
-                    value = message.content
-                )
-                is ChatMessage.UserMessage -> LlmContextElement(
-                    type = LlmContextElementType.User,
-                    value = message.content
-                )
-                else -> null
+    private fun ChatAgentState.toChatViewState(): ChatViewState {
+        val messages = this.context.mapNotNull { element ->
+            when (element.type) {
+                LlmContextElementType.System -> null
+                LlmContextElementType.User -> ChatMessage.UserMessage(element.value)
+                LlmContextElementType.Llm -> _json.decodeFromString<ChatMessage.LlmMessage>(element.value)
             }
         }
+        return if (this.error != null)
+            ChatViewState(messages + ChatMessage.LlmError(this.error))
+        else if (messages.isNotEmpty() && messages.last() is ChatMessage.UserMessage)
+            ChatViewState(messages + ChatMessage.LlmProgress)
+        else
+            ChatViewState(messages)
+    }
 }

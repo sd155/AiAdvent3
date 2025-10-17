@@ -2,4 +2,5 @@
 <resources>
     <string name="prompt_hint">Ask something</string>
     <string name="llm_progress">Thinking..</string>
+    <string name="summary_label">Summary</string>
 </resources> 
