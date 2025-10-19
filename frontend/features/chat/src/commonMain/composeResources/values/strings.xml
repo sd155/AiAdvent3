@@ -3,4 +3,7 @@
     <string name="prompt_hint">Ask something</string>
     <string name="llm_progress">Thinking..</string>
     <string name="summary_label">Summary</string>
+    <string name="question_label">Question</string>
+    <string name="failed_label">Advice failure</string>
+    <string name="succeed_label">Advice ready</string>
 </resources> 

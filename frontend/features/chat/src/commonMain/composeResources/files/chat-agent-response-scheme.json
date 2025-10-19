@@ -22,6 +22,14 @@
       },
       "required": ["result", "description"],
       "additionalProperties": false
+    },
+    {
+      "properties": {
+        "result": { "const": "query" },
+        "question": { "type": "string" }
+      },
+      "required": ["result", "question"],
+      "additionalProperties": false
     }
   ]
 }

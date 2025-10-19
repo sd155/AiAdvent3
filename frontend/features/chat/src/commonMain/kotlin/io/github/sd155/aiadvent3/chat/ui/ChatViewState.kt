@@ -33,6 +33,14 @@ internal sealed class ChatMessage {
             @SerialName("description")
             val description: String,
         ) : LlmMessage()
+        @Serializable
+        @SerialName("query")
+        data class Queried(
+            @SerialName("result")
+            val result: String,
+            @SerialName("question")
+            val question: String,
+        ) : LlmMessage()
     }
     data class LlmError(val content: String) : ChatMessage()
 }

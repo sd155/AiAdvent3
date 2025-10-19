@@ -1,8 +1,11 @@
 package io.github.sd155.aiadvent3.chat.ui
 
 import aiadvent3.frontend.features.chat.generated.resources.Res
+import aiadvent3.frontend.features.chat.generated.resources.failed_label
 import aiadvent3.frontend.features.chat.generated.resources.llm_progress
 import aiadvent3.frontend.features.chat.generated.resources.prompt_hint
+import aiadvent3.frontend.features.chat.generated.resources.question_label
+import aiadvent3.frontend.features.chat.generated.resources.succeed_label
 import aiadvent3.frontend.features.chat.generated.resources.summary_label
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -36,6 +39,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
@@ -142,18 +146,44 @@ private fun RemoteBubble(content: ChatMessage.LlmMessage) =
                 when (content) {
                     is ChatMessage.LlmMessage.Failed -> {
                         Text(
+                            text = stringResource(Res.string.failed_label),
+                            color = MaterialTheme.colorScheme.secondary,
+                            style = MaterialTheme.typography.labelMedium
+                        )
+                        Text(
                             modifier = Modifier.padding(10.dp),
                             text = content.description,
                             color = MaterialTheme.colorScheme.secondary,
                             style = MaterialTheme.typography.bodyMedium
                         )
                     }
-                    is ChatMessage.LlmMessage.Succeed -> {
+                    is ChatMessage.LlmMessage.Queried -> {
+                        Text(
+                            text = stringResource(Res.string.question_label),
+                            color = MaterialTheme.colorScheme.secondary,
+                            style = MaterialTheme.typography.labelMedium
+                        )
                         Text(
                             modifier = Modifier.padding(10.dp),
+                            text = content.question,
+                            color = MaterialTheme.colorScheme.secondary,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                    is ChatMessage.LlmMessage.Succeed -> {
+                        Text(
+                            text = stringResource(Res.string.succeed_label),
+                            color = MaterialTheme.colorScheme.secondary,
+                            style = MaterialTheme.typography.labelMedium
+                        )
+                        Text(
+                            modifier = Modifier
+                                .padding(10.dp)
+                                .fillMaxWidth(),
                             text = content.header,
                             color = MaterialTheme.colorScheme.secondary,
-                            style = MaterialTheme.typography.titleLarge
+                            style = MaterialTheme.typography.titleLarge,
+                            textAlign = TextAlign.Center,
                         )
                         content.details.forEach { detail ->
                             Text(
@@ -164,9 +194,10 @@ private fun RemoteBubble(content: ChatMessage.LlmMessage) =
                             )
                         }
                         Text(
+                            modifier = Modifier.padding(10.dp),
                             text = stringResource(Res.string.summary_label),
                             color = MaterialTheme.colorScheme.secondary,
-                            style = MaterialTheme.typography.labelMedium
+                            style = MaterialTheme.typography.labelLarge
                         )
                         Text(
                             modifier = Modifier.padding(10.dp),

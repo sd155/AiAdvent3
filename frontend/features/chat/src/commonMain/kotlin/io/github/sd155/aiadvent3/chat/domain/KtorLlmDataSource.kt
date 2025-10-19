@@ -42,9 +42,12 @@ internal class ChatAgent(
         addToContext(LlmContextElement(
             type = LlmContextElementType.System,
             value = """
-            You are adviser. You should take user prompt and response with a proficient advice. Your response has to strictly follow the rules:
-            1. Valid only JSON, do not wrap it with markers, do not add extra content.
-            2. Use the given JSON scheme, do not extend the scheme. The scheme:${String(Res.readBytes("files/chat-agent-response-scheme.json"))}
+            You are an adviser. You must take the user's prompt and respond with expert-level advice. You must ask user questions until you're absolutely certain of your advice.
+            Your response must strictly follow these rules:
+            1. Output valid JSON only. Do not wrap it in code markers or add any extra content.
+            2. Use the provided JSON schema exactly as given. Do not extend or modify it. The schema: ${String(Res.readBytes("files/chat-agent-response-scheme.json"))}
+            3. Use the 'query' type to ask the user for additional details. The 'question' property must contain only one your question.
+            4. Use the 'success' type only when you are absolutely certain of your advice, have no unresolved questions, and can provide clear, confident advice.
             """
         ))
     }

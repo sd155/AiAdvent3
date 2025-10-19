@@ -3,4 +3,7 @@
     <string name="prompt_hint">Спросите что-нибудь</string>
     <string name="llm_progress">Думаю..</string>
     <string name="summary_label">Резюме</string>
+    <string name="question_label">Вопрос</string>
+    <string name="failed_label">Не удалось найти совет</string>
+    <string name="succeed_label">Совет готов</string>
 </resources> 
