@@ -6,4 +6,5 @@
     <string name="question_label">Question</string>
     <string name="failed_label">Advice failure</string>
     <string name="succeed_label">Advice ready</string>
+    <string name="creativity_value">Creativity: %1$d</string>
 </resources> 

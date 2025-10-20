@@ -39,9 +39,8 @@ internal class ChatAgent(
     init { scope.launch(Dispatchers.IO) { initializeContext() } }
 
     private suspend fun initializeContext() {
-        addToContext(LlmContextElement(
-            type = LlmContextElementType.System,
-            value = """
+        addToContext(LlmContextElement.System(prompt =
+            """
             You are an adviser. You must take the user's prompt and respond with expert-level advice. You must ask user questions until you're absolutely certain of your advice.
             Your response must strictly follow these rules:
             1. Output valid JSON only. Do not wrap it in code markers or add any extra content.
@@ -53,12 +52,12 @@ internal class ChatAgent(
     }
 
     internal fun ask(prompt: String) {
-        addToContext(LlmContextElement(
-            type = LlmContextElementType.User,
-            value = prompt
-        ))
+        addToContext(LlmContextElement.User(prompt = prompt))
         scope.launch(Dispatchers.IO) {
-            _llm.postChatCompletions(_state.value.context)
+            _llm.postChatCompletions(
+                context = _state.value.context,
+                creativity = _state.value.creativity,
+            )
                 .fold(
                     onSuccess = { element -> addToContext(element) },
                     onFailure = { error -> _state.value = _state.value.copy(error = error) }
@@ -75,7 +74,13 @@ internal class ChatAgent(
 internal data class ChatAgentState(
     val context: List<LlmContextElement> = emptyList(),
     val error: String? = null,
-)
+    val creativity: Float = 1.0f,
+) {
+    init {
+        if (this.creativity < 0f || this.creativity > 2f)
+            throw IllegalArgumentException("Creativity should be within [0,2]!")
+    }
+}
 
 private class KtorLlmDataSource(apiKey: String) {
     private val _httpClient by lazy {
@@ -105,9 +110,15 @@ private class KtorLlmDataSource(apiKey: String) {
             }
         }
     }
+    private val _json =  Json {
+        ignoreUnknownKeys = true
+        isLenient = true
+        classDiscriminator = "result"
+    }
 
-    internal suspend fun postChatCompletions(
-        context: List<LlmContextElement>
+    suspend fun postChatCompletions(
+        context: List<LlmContextElement>,
+        creativity: Float,
     ): Result<String, LlmContextElement> {
         println("postChatCompletions")
         val payload = RequestDto(
@@ -115,14 +126,18 @@ private class KtorLlmDataSource(apiKey: String) {
             messages = context.map { it.toMessageDto() },
             responseFormat = FormatDto(type = "json_object"),
             provider = ProviderDto(only = listOf("chutes")),
+            temperature = creativity,
         )
         return try {
             _httpClient
                 .post { setBody(payload) }
                 .let { response ->
                     when (response.status) {
-                        HttpStatusCode.OK -> response.body<ResponseDto>().choices
-                            ?.first()?.message?.toDomain()?.asSuccess()
+                        HttpStatusCode.OK ->
+                            response.body<ResponseDto>()
+                                .choices?.first()?.message?.content
+                                ?.let { _json.decodeFromString<LlmContextElement.Llm>(it) }
+                                ?.asSuccess()
                             ?: "LLM Error".asFailure()
                         else -> "LLM Error".asFailure()
                     }
@@ -135,14 +150,33 @@ private class KtorLlmDataSource(apiKey: String) {
     }
 
     private fun LlmContextElement.toMessageDto(): MessageDto =
-        MessageDto(
-            role = when (type) {
-                LlmContextElementType.System -> "system"
-                LlmContextElementType.User -> "user"
-                LlmContextElementType.Llm -> "assistant"
-            },
-            content = value,
-        )
+        when (this) {
+            is LlmContextElement.Llm.Failed ->
+                MessageDto(
+                    role = "assistant",
+                    content = description,
+                )
+            is LlmContextElement.Llm.Queried ->
+                MessageDto(
+                    role = "assistant",
+                    content = question,
+                )
+            is LlmContextElement.Llm.Succeed ->
+                MessageDto(
+                    role = "assistant",
+                    content = summary,
+                )
+            is LlmContextElement.System ->
+                MessageDto(
+                    role = "system",
+                    content = prompt,
+                )
+            is LlmContextElement.User ->
+                MessageDto(
+                    role = "user",
+                    content = prompt,
+                )
+        }
 }
 
 @Serializable
@@ -155,6 +189,8 @@ private data class RequestDto(
     val responseFormat: FormatDto,
     @SerialName("provider")
     val provider: ProviderDto,
+    @SerialName("temperature")
+    val temperature: Float,
 )
 
 @Serializable
@@ -187,16 +223,4 @@ private data class MessageDto(
     val role: String?,
     @SerialName("content")
     val content: String?,
-) {
-
-    fun toDomain(): LlmContextElement =
-        LlmContextElement(
-            type = when (role) {
-                "assistant" -> LlmContextElementType.Llm
-                "user" -> LlmContextElementType.User
-                "system" -> LlmContextElementType.System
-                else -> throw IllegalArgumentException("Message has illegal role: $role!")
-            },
-            value = requireNotNull(content),
-        )
-}
+)

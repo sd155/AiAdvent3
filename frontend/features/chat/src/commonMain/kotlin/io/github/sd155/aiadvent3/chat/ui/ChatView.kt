@@ -1,6 +1,7 @@
 package io.github.sd155.aiadvent3.chat.ui
 
 import aiadvent3.frontend.features.chat.generated.resources.Res
+import aiadvent3.frontend.features.chat.generated.resources.creativity_value
 import aiadvent3.frontend.features.chat.generated.resources.failed_label
 import aiadvent3.frontend.features.chat.generated.resources.llm_progress
 import aiadvent3.frontend.features.chat.generated.resources.prompt_hint
@@ -11,6 +12,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -85,7 +87,9 @@ private fun MessageList(
             when (message) {
                 is ChatMessage.UserMessage -> LocalBubble(message.content)
                 is ChatMessage.LlmError -> RemoteError(message.content)
-                is ChatMessage.LlmMessage -> RemoteBubble(message)
+                is ChatMessage.LlmSuccess -> RemoteBubble { RemoteSuccess(message) }
+                is ChatMessage.LlmQuery -> RemoteBubble { RemoteQuery(message) }
+                is ChatMessage.LlmFailure -> RemoteBubble { RemoteFailure(message) }
                 ChatMessage.LlmProgress -> RemoteLoading()
             }
             if (index < messages.size - 1)
@@ -128,7 +132,7 @@ private fun LocalBubble(content: String) =
     }
 
 @Composable
-private fun RemoteBubble(content: ChatMessage.LlmMessage) =
+private fun RemoteBubble(content: @Composable ColumnScope.() -> Unit) =
     Row(
         modifier = Modifier
             .fillMaxWidth(),
@@ -141,76 +145,92 @@ private fun RemoteBubble(content: ChatMessage.LlmMessage) =
                 )
                 .padding(16.dp)
                 .weight(2f),
-        ) {
-            Column {
-                when (content) {
-                    is ChatMessage.LlmMessage.Failed -> {
-                        Text(
-                            text = stringResource(Res.string.failed_label),
-                            color = MaterialTheme.colorScheme.secondary,
-                            style = MaterialTheme.typography.labelMedium
-                        )
-                        Text(
-                            modifier = Modifier.padding(10.dp),
-                            text = content.description,
-                            color = MaterialTheme.colorScheme.secondary,
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
-                    is ChatMessage.LlmMessage.Queried -> {
-                        Text(
-                            text = stringResource(Res.string.question_label),
-                            color = MaterialTheme.colorScheme.secondary,
-                            style = MaterialTheme.typography.labelMedium
-                        )
-                        Text(
-                            modifier = Modifier.padding(10.dp),
-                            text = content.question,
-                            color = MaterialTheme.colorScheme.secondary,
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
-                    is ChatMessage.LlmMessage.Succeed -> {
-                        Text(
-                            text = stringResource(Res.string.succeed_label),
-                            color = MaterialTheme.colorScheme.secondary,
-                            style = MaterialTheme.typography.labelMedium
-                        )
-                        Text(
-                            modifier = Modifier
-                                .padding(10.dp)
-                                .fillMaxWidth(),
-                            text = content.header,
-                            color = MaterialTheme.colorScheme.secondary,
-                            style = MaterialTheme.typography.titleLarge,
-                            textAlign = TextAlign.Center,
-                        )
-                        content.details.forEach { detail ->
-                            Text(
-                                modifier = Modifier.padding(10.dp),
-                                text = detail,
-                                color = MaterialTheme.colorScheme.secondary,
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-                        }
-                        Text(
-                            modifier = Modifier.padding(10.dp),
-                            text = stringResource(Res.string.summary_label),
-                            color = MaterialTheme.colorScheme.secondary,
-                            style = MaterialTheme.typography.labelLarge
-                        )
-                        Text(
-                            modifier = Modifier.padding(10.dp),
-                            text = content.summary,
-                            color = MaterialTheme.colorScheme.secondary,
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
-                }
-            }
-        }
+        ) { Column { content() } }
         Spacer(modifier = Modifier.weight(1f))
     }
+
+@Composable
+private fun RemoteSuccess(state: ChatMessage.LlmSuccess) {
+    Text(
+        text = stringResource(Res.string.succeed_label),
+        color = MaterialTheme.colorScheme.secondary,
+        style = MaterialTheme.typography.labelMedium,
+    )
+    Text(
+        text = stringResource(Res.string.creativity_value, state.creativity),
+        color = MaterialTheme.colorScheme.secondary,
+        style = MaterialTheme.typography.labelMedium,
+    )
+    Text(
+        modifier = Modifier
+            .padding(10.dp)
+            .fillMaxWidth(),
+        text = state.header,
+        color = MaterialTheme.colorScheme.secondary,
+        style = MaterialTheme.typography.titleLarge,
+        textAlign = TextAlign.Center,
+    )
+    state.details.forEach { detail ->
+        Text(
+            modifier = Modifier.padding(10.dp),
+            text = detail,
+            color = MaterialTheme.colorScheme.secondary,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+    }
+    Text(
+        modifier = Modifier.padding(10.dp),
+        text = stringResource(Res.string.summary_label),
+        color = MaterialTheme.colorScheme.secondary,
+        style = MaterialTheme.typography.labelLarge,
+    )
+    Text(
+        modifier = Modifier.padding(10.dp),
+        text = state.summary,
+        color = MaterialTheme.colorScheme.secondary,
+        style = MaterialTheme.typography.bodyMedium,
+    )
+}
+
+@Composable
+private fun RemoteQuery(state: ChatMessage.LlmQuery) {
+    Text(
+        text = stringResource(Res.string.question_label),
+        color = MaterialTheme.colorScheme.secondary,
+        style = MaterialTheme.typography.labelMedium,
+    )
+    Text(
+        text = stringResource(Res.string.creativity_value, state.creativity),
+        color = MaterialTheme.colorScheme.secondary,
+        style = MaterialTheme.typography.labelMedium,
+    )
+    Text(
+        modifier = Modifier.padding(10.dp),
+        text = state.question,
+        color = MaterialTheme.colorScheme.secondary,
+        style = MaterialTheme.typography.bodyMedium
+    )
+}
+
+@Composable
+private fun RemoteFailure(state: ChatMessage.LlmFailure) {
+    Text(
+        text = stringResource(Res.string.failed_label),
+        color = MaterialTheme.colorScheme.secondary,
+        style = MaterialTheme.typography.labelMedium,
+    )
+    Text(
+        text = stringResource(Res.string.creativity_value, state.creativity),
+        color = MaterialTheme.colorScheme.secondary,
+        style = MaterialTheme.typography.labelMedium,
+    )
+    Text(
+        modifier = Modifier.padding(10.dp),
+        text = state.reason,
+        color = MaterialTheme.colorScheme.secondary,
+        style = MaterialTheme.typography.bodyMedium
+    )
+}
 
 @Composable
 private fun RemoteLoading() =
