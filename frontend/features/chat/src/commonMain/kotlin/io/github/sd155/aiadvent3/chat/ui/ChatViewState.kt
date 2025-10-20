@@ -10,16 +10,22 @@ internal sealed class ChatMessage {
     data class LlmSuccess(
         val header: String,
         val creativity: Float,
+        val usedTokens: Int,
+        val reasoning: String?,
         val details: List<String>,
         val summary: String,
     ) : ChatMessage()
     data class LlmQuery(
         val question: String,
         val creativity: Float,
+        val usedTokens: Int,
+        val reasoning: String?,
     ) : ChatMessage()
     data class LlmFailure(
         val reason: String,
         val creativity: Float,
+        val usedTokens: Int,
+        val reasoning: String?,
     ) : ChatMessage()
     data class LlmError(val content: String) : ChatMessage()
 }

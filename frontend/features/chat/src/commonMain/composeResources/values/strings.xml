@@ -7,4 +7,6 @@
     <string name="failed_label">Advice failure</string>
     <string name="succeed_label">Advice ready</string>
     <string name="creativity_value">Creativity: %1$d</string>
+    <string name="used_tokens_value">Tokens: %1$d</string>
+    <string name="reasoning_label">Reasoning</string>
 </resources> 

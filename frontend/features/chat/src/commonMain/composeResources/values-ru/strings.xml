@@ -7,4 +7,6 @@
     <string name="failed_label">Не удалось найти совет</string>
     <string name="succeed_label">Совет готов</string>
     <string name="creativity_value">Креативность: %1$d</string>
+    <string name="used_tokens_value">Токены: %1$d</string>
+    <string name="reasoning_label">Рассуждение</string>
 </resources> 

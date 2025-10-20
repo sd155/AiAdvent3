@@ -135,37 +135,31 @@ private class KtorLlmDataSource(apiKey: String) {
                     when (response.status) {
                         HttpStatusCode.OK ->
                             response.body<ResponseDto>()
-                                .choices?.first()?.message?.content
-                                ?.let { _json.decodeFromString<LlmContextElement.Llm>(it) }
-                                ?.asSuccess()
-                            ?: "LLM Error".asFailure()
-                        else -> "LLM Error".asFailure()
+                                .let { responseDto ->
+                                    val content = responseDto.choices?.first()?.message?.content
+                                    val reasoning = responseDto.choices?.first()?.message?.reasoning
+                                    val usedTokens = responseDto.usage?.totalTokens
+                                    if (content == null || usedTokens == null)
+                                        "LLM Error: Invalid content or usedTokens".asFailure()
+                                    else
+                                        LlmContextElement.Llm(
+                                            content = _json.decodeFromString<LlmContent>(content),
+                                            reasoning = reasoning,
+                                            usedTokens = usedTokens
+                                        ).asSuccess()
+                                }
+                        else -> "LLM Error: Network failed".asFailure()
                     }
                 }
         }
         catch (e: Exception) {
             e.printStackTrace()
-            "LLM Error".asFailure()
+            "LLM Error: Unexpected exception".asFailure()
         }
     }
 
     private fun LlmContextElement.toMessageDto(): MessageDto =
         when (this) {
-            is LlmContextElement.Llm.Failed ->
-                MessageDto(
-                    role = "assistant",
-                    content = description,
-                )
-            is LlmContextElement.Llm.Queried ->
-                MessageDto(
-                    role = "assistant",
-                    content = question,
-                )
-            is LlmContextElement.Llm.Succeed ->
-                MessageDto(
-                    role = "assistant",
-                    content = summary,
-                )
             is LlmContextElement.System ->
                 MessageDto(
                     role = "system",
@@ -176,6 +170,16 @@ private class KtorLlmDataSource(apiKey: String) {
                     role = "user",
                     content = prompt,
                 )
+            is LlmContextElement.Llm ->
+                MessageDto(
+                    role = "assistant",
+                    content = when (content) {
+                        is LlmContent.Failed -> content.description
+                        is LlmContent.Queried -> content.question
+                        is LlmContent.Succeed -> content.summary
+                    },
+                )
+
         }
 }
 
@@ -209,6 +213,8 @@ private data class FormatDto(
 private data class ResponseDto(
     @SerialName("choices")
     val choices: List<ChoiceDto>?,
+    @SerialName("usage")
+    val usage: UsageDto?,
 )
 
 @Serializable
@@ -223,4 +229,12 @@ private data class MessageDto(
     val role: String?,
     @SerialName("content")
     val content: String?,
+    @SerialName("reasoning")
+    val reasoning: String? = null,
+)
+
+@Serializable
+private data class UsageDto(
+    @SerialName("total_tokens")
+    val totalTokens: Int?,
 )

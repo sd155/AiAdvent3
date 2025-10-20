@@ -6,8 +6,10 @@ import aiadvent3.frontend.features.chat.generated.resources.failed_label
 import aiadvent3.frontend.features.chat.generated.resources.llm_progress
 import aiadvent3.frontend.features.chat.generated.resources.prompt_hint
 import aiadvent3.frontend.features.chat.generated.resources.question_label
+import aiadvent3.frontend.features.chat.generated.resources.reasoning_label
 import aiadvent3.frontend.features.chat.generated.resources.succeed_label
 import aiadvent3.frontend.features.chat.generated.resources.summary_label
+import aiadvent3.frontend.features.chat.generated.resources.used_tokens_value
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -162,6 +164,11 @@ private fun RemoteSuccess(state: ChatMessage.LlmSuccess) {
         style = MaterialTheme.typography.labelMedium,
     )
     Text(
+        text = stringResource(Res.string.used_tokens_value, state.usedTokens),
+        color = MaterialTheme.colorScheme.secondary,
+        style = MaterialTheme.typography.labelMedium,
+    )
+    Text(
         modifier = Modifier
             .padding(10.dp)
             .fillMaxWidth(),
@@ -170,6 +177,20 @@ private fun RemoteSuccess(state: ChatMessage.LlmSuccess) {
         style = MaterialTheme.typography.titleLarge,
         textAlign = TextAlign.Center,
     )
+    state.reasoning?.let { reasoning ->
+        Text(
+            modifier = Modifier.padding(horizontal = 25.dp, vertical = 10.dp),
+            text = stringResource(Res.string.reasoning_label),
+            color = MaterialTheme.colorScheme.outline,
+            style = MaterialTheme.typography.bodySmall,
+        )
+        Text(
+            modifier = Modifier.padding(horizontal = 25.dp, vertical = 10.dp),
+            text = reasoning,
+            color = MaterialTheme.colorScheme.outline,
+            style = MaterialTheme.typography.bodySmall,
+        )
+    }
     state.details.forEach { detail ->
         Text(
             modifier = Modifier.padding(10.dp),
@@ -205,6 +226,25 @@ private fun RemoteQuery(state: ChatMessage.LlmQuery) {
         style = MaterialTheme.typography.labelMedium,
     )
     Text(
+        text = stringResource(Res.string.used_tokens_value, state.usedTokens),
+        color = MaterialTheme.colorScheme.secondary,
+        style = MaterialTheme.typography.labelMedium,
+    )
+    state.reasoning?.let { reasoning ->
+        Text(
+            modifier = Modifier.padding(horizontal = 25.dp, vertical = 10.dp),
+            text = stringResource(Res.string.reasoning_label),
+            color = MaterialTheme.colorScheme.outline,
+            style = MaterialTheme.typography.bodySmall,
+        )
+        Text(
+            modifier = Modifier.padding(horizontal = 25.dp, vertical = 10.dp),
+            text = reasoning,
+            color = MaterialTheme.colorScheme.outline,
+            style = MaterialTheme.typography.bodySmall,
+        )
+    }
+    Text(
         modifier = Modifier.padding(10.dp),
         text = state.question,
         color = MaterialTheme.colorScheme.secondary,
@@ -224,6 +264,25 @@ private fun RemoteFailure(state: ChatMessage.LlmFailure) {
         color = MaterialTheme.colorScheme.secondary,
         style = MaterialTheme.typography.labelMedium,
     )
+    Text(
+        text = stringResource(Res.string.used_tokens_value, state.usedTokens),
+        color = MaterialTheme.colorScheme.secondary,
+        style = MaterialTheme.typography.labelMedium,
+    )
+    state.reasoning?.let { reasoning ->
+        Text(
+            modifier = Modifier.padding(horizontal = 25.dp, vertical = 10.dp),
+            text = stringResource(Res.string.reasoning_label),
+            color = MaterialTheme.colorScheme.outline,
+            style = MaterialTheme.typography.bodySmall,
+        )
+        Text(
+            modifier = Modifier.padding(horizontal = 25.dp, vertical = 10.dp),
+            text = reasoning,
+            color = MaterialTheme.colorScheme.outline,
+            style = MaterialTheme.typography.bodySmall,
+        )
+    }
     Text(
         modifier = Modifier.padding(10.dp),
         text = state.reason,
