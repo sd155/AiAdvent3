@@ -2,6 +2,7 @@ package io.github.sd155.aiadvent3.chat.ui
 
 import aiadvent3.frontend.features.chat.generated.resources.Res
 import aiadvent3.frontend.features.chat.generated.resources.creativity_value
+import aiadvent3.frontend.features.chat.generated.resources.elapsed_time_ms
 import aiadvent3.frontend.features.chat.generated.resources.failed_label
 import aiadvent3.frontend.features.chat.generated.resources.llm_progress
 import aiadvent3.frontend.features.chat.generated.resources.prompt_hint
@@ -169,6 +170,11 @@ private fun RemoteSuccess(state: ChatMessage.LlmSuccess) {
         style = MaterialTheme.typography.labelMedium,
     )
     Text(
+        text = stringResource(Res.string.elapsed_time_ms, state.elapsedMs),
+        color = MaterialTheme.colorScheme.secondary,
+        style = MaterialTheme.typography.labelMedium,
+    )
+    Text(
         modifier = Modifier
             .padding(10.dp)
             .fillMaxWidth(),
@@ -230,6 +236,11 @@ private fun RemoteQuery(state: ChatMessage.LlmQuery) {
         color = MaterialTheme.colorScheme.secondary,
         style = MaterialTheme.typography.labelMedium,
     )
+    Text(
+        text = stringResource(Res.string.elapsed_time_ms, state.elapsedMs),
+        color = MaterialTheme.colorScheme.secondary,
+        style = MaterialTheme.typography.labelMedium,
+    )
     state.reasoning?.let { reasoning ->
         Text(
             modifier = Modifier.padding(horizontal = 25.dp, vertical = 10.dp),
@@ -266,6 +277,11 @@ private fun RemoteFailure(state: ChatMessage.LlmFailure) {
     )
     Text(
         text = stringResource(Res.string.used_tokens_value, state.usedTokens),
+        color = MaterialTheme.colorScheme.secondary,
+        style = MaterialTheme.typography.labelMedium,
+    )
+    Text(
+        text = stringResource(Res.string.elapsed_time_ms, state.elapsedMs),
         color = MaterialTheme.colorScheme.secondary,
         style = MaterialTheme.typography.labelMedium,
     )

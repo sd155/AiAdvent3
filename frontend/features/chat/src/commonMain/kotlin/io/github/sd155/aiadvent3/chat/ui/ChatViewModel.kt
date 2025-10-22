@@ -48,6 +48,7 @@ internal class ChatViewModel(apiKey: String) : ViewModel() {
                                 creativity = creativity,
                                 usedTokens = element.usedTokens,
                                 reasoning = element.reasoning,
+                                elapsedMs = element.elapsedMs,
                             )
                         is LlmContent.Queried ->
                             ChatMessage.LlmQuery(
@@ -55,6 +56,7 @@ internal class ChatViewModel(apiKey: String) : ViewModel() {
                                 creativity = creativity,
                                 usedTokens = element.usedTokens,
                                 reasoning = element.reasoning,
+                                elapsedMs = element.elapsedMs,
                             )
                         is LlmContent.Succeed ->
                             ChatMessage.LlmSuccess(
@@ -64,6 +66,7 @@ internal class ChatViewModel(apiKey: String) : ViewModel() {
                                 reasoning = element.reasoning,
                                 details = element.content.details,
                                 summary = element.content.summary,
+                                elapsedMs = element.elapsedMs,
                             )
                     }
                 }

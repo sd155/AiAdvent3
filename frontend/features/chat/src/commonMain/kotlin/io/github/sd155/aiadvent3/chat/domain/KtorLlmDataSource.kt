@@ -27,6 +27,7 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlin.time.TimeSource
 
 internal class ChatAgent(
     apiKey: String,
@@ -128,6 +129,7 @@ private class KtorLlmDataSource(apiKey: String) {
             provider = ProviderDto(only = listOf("chutes")),
             temperature = creativity,
         )
+        val start = TimeSource.Monotonic.markNow()
         return try {
             _httpClient
                 .post { setBody(payload) }
@@ -145,7 +147,8 @@ private class KtorLlmDataSource(apiKey: String) {
                                         LlmContextElement.Llm(
                                             content = _json.decodeFromString<LlmContent>(content),
                                             reasoning = reasoning,
-                                            usedTokens = usedTokens
+                                            usedTokens = usedTokens,
+                                            elapsedMs = start.elapsedNow().inWholeMilliseconds,
                                         ).asSuccess()
                                 }
                         else -> "LLM Error: Network failed".asFailure()

@@ -8,5 +8,6 @@
     <string name="succeed_label">Advice ready</string>
     <string name="creativity_value">Creativity: %1$d</string>
     <string name="used_tokens_value">Tokens: %1$d</string>
+    <string name="elapsed_time_ms">Elapsed: %1$dms</string>
     <string name="reasoning_label">Reasoning</string>
 </resources> 
