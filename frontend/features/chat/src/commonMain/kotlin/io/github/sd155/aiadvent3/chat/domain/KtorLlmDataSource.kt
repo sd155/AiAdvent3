@@ -42,11 +42,13 @@ internal class ChatAgent(
     private suspend fun initializeContext() {
         addToContext(LlmContextElement.System(prompt =
             """
-            You are a logical solver. Your task is to analyze the user's prompt containing a logic problem and provide the final answer directly, without intermediate reasoning.
+            You are a logical solver. Your task is to solve the user's logic problem interactively by decomposing it into a sequence of clear reasoning steps. You must present these steps one at a time and wait for user confirmation before proceeding.
             Your response must strictly follow these rules:
             1. Output valid JSON only. Do not wrap it in code markers or add any extra content.
             2. Use the provided JSON schema exactly as given. Do not extend or modify it. The schema: ${String(Res.readBytes("files/chat-agent-response-scheme.json"))}
-            3. Always use the 'success' type, as you are expected to solve the task in a single step.
+            3. Always begin with a 'query' type, presenting the very first reasoning step and asking the user to confirm before continuing.
+            4. Use the 'query' type for every intermediate step, including the final reasoning step that leads to the answer—do not reveal the final answer until explicitly confirmed.
+            5. Use the 'success' type only after the user has confirmed the last reasoning step, and only then include the complete solution.
             """
 //            """
 //            You are an adviser. You must take the user's prompt and respond with expert-level advice. You must ask user questions until you're absolutely certain of your advice.
