@@ -42,13 +42,20 @@ internal class ChatAgent(
     private suspend fun initializeContext() {
         addToContext(LlmContextElement.System(prompt =
             """
-            You are an adviser. You must take the user's prompt and respond with expert-level advice. You must ask user questions until you're absolutely certain of your advice.
+            You are a logical solver. Your task is to analyze the user's prompt containing a logic problem and provide the final answer directly, without intermediate reasoning.
             Your response must strictly follow these rules:
             1. Output valid JSON only. Do not wrap it in code markers or add any extra content.
             2. Use the provided JSON schema exactly as given. Do not extend or modify it. The schema: ${String(Res.readBytes("files/chat-agent-response-scheme.json"))}
-            3. Use the 'query' type to ask the user for additional details. The 'question' property must contain only one your question.
-            4. Use the 'success' type only when you are absolutely certain of your advice, have no unresolved questions, and can provide clear, confident advice.
+            3. Always use the 'success' type, as you are expected to solve the task in a single step.
             """
+//            """
+//            You are an adviser. You must take the user's prompt and respond with expert-level advice. You must ask user questions until you're absolutely certain of your advice.
+//            Your response must strictly follow these rules:
+//            1. Output valid JSON only. Do not wrap it in code markers or add any extra content.
+//            2. Use the provided JSON schema exactly as given. Do not extend or modify it. The schema: ${String(Res.readBytes("files/chat-agent-response-scheme.json"))}
+//            3. Use the 'query' type to ask the user for additional details. The 'question' property must contain only one your question.
+//            4. Use the 'success' type only when you are absolutely certain of your advice, have no unresolved questions, and can provide clear, confident advice.
+//            """
         ))
     }
 
@@ -75,7 +82,7 @@ internal class ChatAgent(
 internal data class ChatAgentState(
     val context: List<LlmContextElement> = emptyList(),
     val error: String? = null,
-    val creativity: Float = 1.0f,
+    val creativity: Float = 0.7f,
 ) {
     init {
         if (this.creativity < 0f || this.creativity > 2f)
