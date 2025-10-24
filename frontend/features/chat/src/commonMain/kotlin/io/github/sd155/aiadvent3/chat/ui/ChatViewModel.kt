@@ -2,10 +2,13 @@ package io.github.sd155.aiadvent3.chat.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import io.github.sd155.aiadvent3.chat.domain.ChatAgent
-import io.github.sd155.aiadvent3.chat.domain.ChatAgentState
 import io.github.sd155.aiadvent3.chat.domain.LlmContent
 import io.github.sd155.aiadvent3.chat.domain.LlmContextElement
+import io.github.sd155.aiadvent3.chat.domain.ResearchAnalystAgent
+import io.github.sd155.aiadvent3.chat.domain.TranslatorAgent
+import io.github.sd155.aiadvent3.utils.asFailure
+import io.github.sd155.aiadvent3.utils.fold
+import io.github.sd155.aiadvent3.utils.next
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -13,71 +16,96 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 internal class ChatViewModel(apiKey: String) : ViewModel() {
-    private val _agent by lazy { ChatAgent(apiKey = apiKey, scope = viewModelScope) }
+    private val _researcher by lazy { ResearchAnalystAgent(apiKey = apiKey) }
+    private val _translator by lazy { TranslatorAgent(apiKey = apiKey) }
     private val _state = MutableStateFlow(ChatViewState())
     internal val state: StateFlow<ChatViewState> = _state.asStateFlow()
 
-    init {
-        viewModelScope.launch(Dispatchers.Default) {
-            _agent.state.collect { agentState ->
-                _state.value.reduce { agentState.toChatViewState() }
+    internal fun onViewIntent(intent: ChatViewIntent) = viewModelScope.launch(Dispatchers.Default) {
+        when (intent) {
+            is ChatViewIntent.UserPrompted -> {
+                _state.value.reduce { ChatViewState(listOf(ChatMessage.UserMessage(intent.prompt))) }
+                _state.value.messages.reduceWithProgress()
+                _researcher.research(LlmContextElement.User(intent.prompt))
+                    .next { researcherResponse ->
+                        if (researcherResponse.content is LlmContent.Succeed) {
+                            _state.value.messages
+                                .clearProgress()
+                                .reduceWithLlmMessage(
+                                    tag = "Researcher",
+                                    element = researcherResponse
+                                )
+                                .reduceWithProgress()
+                            _translator.translate(researcherResponse.content)
+                        }
+                        else
+                            "Bad researcher response!".asFailure()
+                    }
+                    .fold(
+                        onFailure = { error ->
+                            _state.value.messages
+                                .clearProgress()
+                                .let { messages ->
+                                    _state.value.reduce { ChatViewState(messages + ChatMessage.LlmError(error)) }
+                                }
+                        },
+                        onSuccess = { translatorResponse ->
+                            _state.value.messages
+                                .clearProgress()
+                                .reduceWithLlmMessage(
+                                    tag = "Translator",
+                                    element = translatorResponse
+                                )
+                        }
+                    )
             }
         }
     }
 
-    internal fun onViewIntent(intent: ChatViewIntent) = viewModelScope.launch(Dispatchers.Default) {
-        when (intent) {
-            is ChatViewIntent.UserPrompted -> _agent.ask(intent.prompt)
+    private fun List<ChatMessage>.reduceWithProgress() {
+        _state.value.messages.let { messages ->
+            _state.value.reduce { ChatViewState(messages + ChatMessage.LlmProgress) }
         }
+    }
+
+    private fun List<ChatMessage>.clearProgress(): List<ChatMessage> =
+        if (isNotEmpty() && last() is ChatMessage.LlmProgress)
+            this - last()
+        else
+            this
+
+    private fun List<ChatMessage>.reduceWithLlmMessage(
+        element: LlmContextElement.Llm,
+        tag: String
+    ): List<ChatMessage> {
+        val llmMessage = when (element.content) {
+            is LlmContent.Failed ->
+                ChatMessage.LlmFailure(
+                    reason = element.content.description,
+                    creativity = element.creativity,
+                    usedTokens = element.usedTokens,
+                    reasoning = element.reasoning,
+                    elapsedMs = element.elapsedMs,
+                )
+            is LlmContent.Succeed ->
+                ChatMessage.LlmSuccess(
+                    header = element.content.header,
+                    creativity = element.creativity,
+                    usedTokens = element.usedTokens,
+                    reasoning = element.reasoning,
+                    details = element.content.details,
+                    summary = element.content.summary,
+                    elapsedMs = element.elapsedMs,
+                    agentTag = tag,
+                )
+        }
+        val updatedMessages = this + llmMessage
+        _state.value.reduce { ChatViewState(updatedMessages) }
+        return updatedMessages
     }
 
     private fun ChatViewState.reduce(reducer: ChatViewState.() -> ChatViewState): ChatViewState {
         _state.value = reducer(this)
         return this
-    }
-
-    private fun ChatAgentState.toChatViewState(): ChatViewState {
-        val messages = this.context.mapNotNull { element ->
-            when (element) {
-                is LlmContextElement.User -> ChatMessage.UserMessage(element.prompt)
-                is LlmContextElement.Llm -> {
-                    when (element.content) {
-                        is LlmContent.Failed ->
-                            ChatMessage.LlmFailure(
-                                reason = element.content.description,
-                                creativity = creativity,
-                                usedTokens = element.usedTokens,
-                                reasoning = element.reasoning,
-                                elapsedMs = element.elapsedMs,
-                            )
-                        is LlmContent.Queried ->
-                            ChatMessage.LlmQuery(
-                                question = element.content.question,
-                                creativity = creativity,
-                                usedTokens = element.usedTokens,
-                                reasoning = element.reasoning,
-                                elapsedMs = element.elapsedMs,
-                            )
-                        is LlmContent.Succeed ->
-                            ChatMessage.LlmSuccess(
-                                header = element.content.header,
-                                creativity = creativity,
-                                usedTokens = element.usedTokens,
-                                reasoning = element.reasoning,
-                                details = element.content.details,
-                                summary = element.content.summary,
-                                elapsedMs = element.elapsedMs,
-                            )
-                    }
-                }
-                else -> null
-            }
-        }
-        return if (this.error != null)
-            ChatViewState(messages + ChatMessage.LlmError(this.error))
-        else if (messages.isNotEmpty() && messages.last() is ChatMessage.UserMessage)
-            ChatViewState(messages + ChatMessage.LlmProgress)
-        else
-            ChatViewState(messages)
     }
 }

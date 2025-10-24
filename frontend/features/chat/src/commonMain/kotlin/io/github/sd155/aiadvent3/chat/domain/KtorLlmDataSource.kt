@@ -1,10 +1,8 @@
 package io.github.sd155.aiadvent3.chat.domain
 
-import aiadvent3.frontend.features.chat.generated.resources.Res
 import io.github.sd155.aiadvent3.utils.Result
 import io.github.sd155.aiadvent3.utils.asFailure
 import io.github.sd155.aiadvent3.utils.asSuccess
-import io.github.sd155.aiadvent3.utils.fold
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.engine.cio.CIO
@@ -18,81 +16,15 @@ import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.json.json
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlin.time.TimeSource
 
-internal class ChatAgent(
+internal class KtorLlmDataSource(
     apiKey: String,
-    private val scope: CoroutineScope,
+    private val model: String,
 ) {
-    private val _llm by lazy { KtorLlmDataSource(apiKey) }
-    private val _state = MutableStateFlow(ChatAgentState())
-    internal val state: StateFlow<ChatAgentState> = _state.asStateFlow()
-
-    init { scope.launch(Dispatchers.IO) { initializeContext() } }
-
-    private suspend fun initializeContext() {
-        addToContext(LlmContextElement.System(prompt =
-            """
-            You are a logical solver. Your task is to solve the user's logic problem interactively by decomposing it into a sequence of clear reasoning steps. You must present these steps one at a time and wait for user confirmation before proceeding.
-            Your response must strictly follow these rules:
-            1. Output valid JSON only. Do not wrap it in code markers or add any extra content.
-            2. Use the provided JSON schema exactly as given. Do not extend or modify it. The schema: ${String(Res.readBytes("files/chat-agent-response-scheme.json"))}
-            3. Always begin with a 'query' type, presenting the very first reasoning step and asking the user to confirm before continuing.
-            4. Use the 'query' type for every intermediate step, including the final reasoning step that leads to the answer—do not reveal the final answer until explicitly confirmed.
-            5. Use the 'success' type only after the user has confirmed the last reasoning step, and only then include the complete solution.
-            """
-//            """
-//            You are an adviser. You must take the user's prompt and respond with expert-level advice. You must ask user questions until you're absolutely certain of your advice.
-//            Your response must strictly follow these rules:
-//            1. Output valid JSON only. Do not wrap it in code markers or add any extra content.
-//            2. Use the provided JSON schema exactly as given. Do not extend or modify it. The schema: ${String(Res.readBytes("files/chat-agent-response-scheme.json"))}
-//            3. Use the 'query' type to ask the user for additional details. The 'question' property must contain only one your question.
-//            4. Use the 'success' type only when you are absolutely certain of your advice, have no unresolved questions, and can provide clear, confident advice.
-//            """
-        ))
-    }
-
-    internal fun ask(prompt: String) {
-        addToContext(LlmContextElement.User(prompt = prompt))
-        scope.launch(Dispatchers.IO) {
-            _llm.postChatCompletions(
-                context = _state.value.context,
-                creativity = _state.value.creativity,
-            )
-                .fold(
-                    onSuccess = { element -> addToContext(element) },
-                    onFailure = { error -> _state.value = _state.value.copy(error = error) }
-                )
-        }
-    }
-
-    private fun addToContext(element: LlmContextElement) {
-        val context = _state.value.context
-        _state.value = ChatAgentState(context + element)
-    }
-}
-
-internal data class ChatAgentState(
-    val context: List<LlmContextElement> = emptyList(),
-    val error: String? = null,
-    val creativity: Float = 0.7f,
-) {
-    init {
-        if (this.creativity < 0f || this.creativity > 2f)
-            throw IllegalArgumentException("Creativity should be within [0,2]!")
-    }
-}
-
-private class KtorLlmDataSource(apiKey: String) {
     private val _httpClient by lazy {
         HttpClient(CIO) {
             install(Logging) {
@@ -126,16 +58,16 @@ private class KtorLlmDataSource(apiKey: String) {
         classDiscriminator = "result"
     }
 
-    suspend fun postChatCompletions(
+    internal suspend fun postChatCompletions(
         context: List<LlmContextElement>,
         creativity: Float,
-    ): Result<String, LlmContextElement> {
+    ): Result<String, LlmContextElement.Llm> {
         println("postChatCompletions")
         val payload = RequestDto(
-            model = "tngtech/deepseek-r1t2-chimera:free",
+            model = model,
             messages = context.map { it.toMessageDto() },
             responseFormat = FormatDto(type = "json_object"),
-            provider = ProviderDto(only = listOf("chutes")),
+//            provider = ProviderDto(only = listOf("chutes")),
             temperature = creativity,
         )
         val start = TimeSource.Monotonic.markNow()
@@ -158,6 +90,7 @@ private class KtorLlmDataSource(apiKey: String) {
                                             reasoning = reasoning,
                                             usedTokens = usedTokens,
                                             elapsedMs = start.elapsedNow().inWholeMilliseconds,
+                                            creativity = creativity,
                                         ).asSuccess()
                                 }
                         else -> "LLM Error: Network failed".asFailure()
@@ -187,7 +120,6 @@ private class KtorLlmDataSource(apiKey: String) {
                     role = "assistant",
                     content = when (content) {
                         is LlmContent.Failed -> content.description
-                        is LlmContent.Queried -> content.question
                         is LlmContent.Succeed -> content.summary
                     },
                 )
@@ -203,8 +135,8 @@ private data class RequestDto(
     val messages: List<MessageDto>,
     @SerialName("response_format")
     val responseFormat: FormatDto,
-    @SerialName("provider")
-    val provider: ProviderDto,
+//    @SerialName("provider")
+//    val provider: ProviderDto,
     @SerialName("temperature")
     val temperature: Float,
 )

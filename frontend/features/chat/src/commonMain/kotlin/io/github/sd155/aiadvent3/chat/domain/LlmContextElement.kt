@@ -11,6 +11,7 @@ internal sealed class LlmContextElement {
         val reasoning: String? = null,
         val usedTokens: Int,
         val elapsedMs: Long,
+        val creativity: Float,
     ) : LlmContextElement()
 }
 
@@ -35,13 +36,5 @@ internal sealed class LlmContent {
         val result: String,
         @SerialName("description")
         val description: String,
-    ) : LlmContent()
-    @Serializable
-    @SerialName("query")
-    data class Queried(
-        @SerialName("result")
-        val result: String,
-        @SerialName("question")
-        val question: String,
     ) : LlmContent()
 }

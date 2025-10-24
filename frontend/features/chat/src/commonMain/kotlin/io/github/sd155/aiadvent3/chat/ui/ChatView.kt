@@ -6,7 +6,6 @@ import aiadvent3.frontend.features.chat.generated.resources.elapsed_time_ms
 import aiadvent3.frontend.features.chat.generated.resources.failed_label
 import aiadvent3.frontend.features.chat.generated.resources.llm_progress
 import aiadvent3.frontend.features.chat.generated.resources.prompt_hint
-import aiadvent3.frontend.features.chat.generated.resources.question_label
 import aiadvent3.frontend.features.chat.generated.resources.reasoning_label
 import aiadvent3.frontend.features.chat.generated.resources.succeed_label
 import aiadvent3.frontend.features.chat.generated.resources.summary_label
@@ -91,7 +90,6 @@ private fun MessageList(
                 is ChatMessage.UserMessage -> LocalBubble(message.content)
                 is ChatMessage.LlmError -> RemoteError(message.content)
                 is ChatMessage.LlmSuccess -> RemoteBubble { RemoteSuccess(message) }
-                is ChatMessage.LlmQuery -> RemoteBubble { RemoteQuery(message) }
                 is ChatMessage.LlmFailure -> RemoteBubble { RemoteFailure(message) }
                 ChatMessage.LlmProgress -> RemoteLoading()
             }
@@ -160,6 +158,11 @@ private fun RemoteSuccess(state: ChatMessage.LlmSuccess) {
         style = MaterialTheme.typography.labelMedium,
     )
     Text(
+        text = state.agentTag,
+        color = MaterialTheme.colorScheme.secondary,
+        style = MaterialTheme.typography.labelMedium,
+    )
+    Text(
         text = stringResource(Res.string.creativity_value, state.creativity),
         color = MaterialTheme.colorScheme.secondary,
         style = MaterialTheme.typography.labelMedium,
@@ -216,50 +219,6 @@ private fun RemoteSuccess(state: ChatMessage.LlmSuccess) {
         text = state.summary,
         color = MaterialTheme.colorScheme.secondary,
         style = MaterialTheme.typography.bodyMedium,
-    )
-}
-
-@Composable
-private fun RemoteQuery(state: ChatMessage.LlmQuery) {
-    Text(
-        text = stringResource(Res.string.question_label),
-        color = MaterialTheme.colorScheme.secondary,
-        style = MaterialTheme.typography.labelMedium,
-    )
-    Text(
-        text = stringResource(Res.string.creativity_value, state.creativity),
-        color = MaterialTheme.colorScheme.secondary,
-        style = MaterialTheme.typography.labelMedium,
-    )
-    Text(
-        text = stringResource(Res.string.used_tokens_value, state.usedTokens),
-        color = MaterialTheme.colorScheme.secondary,
-        style = MaterialTheme.typography.labelMedium,
-    )
-    Text(
-        text = stringResource(Res.string.elapsed_time_ms, state.elapsedMs),
-        color = MaterialTheme.colorScheme.secondary,
-        style = MaterialTheme.typography.labelMedium,
-    )
-    state.reasoning?.let { reasoning ->
-        Text(
-            modifier = Modifier.padding(horizontal = 25.dp, vertical = 10.dp),
-            text = stringResource(Res.string.reasoning_label),
-            color = MaterialTheme.colorScheme.outline,
-            style = MaterialTheme.typography.bodySmall,
-        )
-        Text(
-            modifier = Modifier.padding(horizontal = 25.dp, vertical = 10.dp),
-            text = reasoning,
-            color = MaterialTheme.colorScheme.outline,
-            style = MaterialTheme.typography.bodySmall,
-        )
-    }
-    Text(
-        modifier = Modifier.padding(10.dp),
-        text = state.question,
-        color = MaterialTheme.colorScheme.secondary,
-        style = MaterialTheme.typography.bodyMedium
     )
 }
 
