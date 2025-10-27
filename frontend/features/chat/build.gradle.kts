@@ -26,6 +26,7 @@ kotlin {
             implementation(libs.ktor.client.serialization)
             implementation(libs.slf4j.simple)
             implementation(projects.frontend.features.utils)
+            implementation("com.aallam.ktoken:ktoken:0.4.0")
         }
     }
 } 

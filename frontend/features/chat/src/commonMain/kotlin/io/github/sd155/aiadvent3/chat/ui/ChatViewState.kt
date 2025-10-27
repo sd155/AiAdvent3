@@ -10,6 +10,8 @@ internal sealed class ChatMessage {
     data class LlmSuccess(
         val header: String,
         val creativity: Float,
+        val promptTokens: Int,
+        val completionTokens: Int,
         val usedTokens: Int,
         val reasoning: String?,
         val details: List<String>,
@@ -19,6 +21,8 @@ internal sealed class ChatMessage {
     data class LlmQuery(
         val question: String,
         val creativity: Float,
+        val promptTokens: Int,
+        val completionTokens: Int,
         val usedTokens: Int,
         val reasoning: String?,
         val elapsedMs: Long,
@@ -26,6 +30,8 @@ internal sealed class ChatMessage {
     data class LlmFailure(
         val reason: String,
         val creativity: Float,
+        val promptTokens: Int,
+        val completionTokens: Int,
         val usedTokens: Int,
         val reasoning: String?,
         val elapsedMs: Long,

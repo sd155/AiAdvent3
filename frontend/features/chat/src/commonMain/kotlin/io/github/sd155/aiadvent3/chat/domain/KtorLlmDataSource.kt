@@ -1,10 +1,9 @@
 package io.github.sd155.aiadvent3.chat.domain
 
-import aiadvent3.frontend.features.chat.generated.resources.Res
 import io.github.sd155.aiadvent3.utils.Result
 import io.github.sd155.aiadvent3.utils.asFailure
 import io.github.sd155.aiadvent3.utils.asSuccess
-import io.github.sd155.aiadvent3.utils.fold
+import io.github.sd155.aiadvent3.utils.next
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.engine.cio.CIO
@@ -18,81 +17,12 @@ import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.json.json
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlin.time.TimeSource
 
-internal class ChatAgent(
-    apiKey: String,
-    private val scope: CoroutineScope,
-) {
-    private val _llm by lazy { KtorLlmDataSource(apiKey) }
-    private val _state = MutableStateFlow(ChatAgentState())
-    internal val state: StateFlow<ChatAgentState> = _state.asStateFlow()
-
-    init { scope.launch(Dispatchers.IO) { initializeContext() } }
-
-    private suspend fun initializeContext() {
-        addToContext(LlmContextElement.System(prompt =
-            """
-            You are a logical solver. Your task is to solve the user's logic problem interactively by decomposing it into a sequence of clear reasoning steps. You must present these steps one at a time and wait for user confirmation before proceeding.
-            Your response must strictly follow these rules:
-            1. Output valid JSON only. Do not wrap it in code markers or add any extra content.
-            2. Use the provided JSON schema exactly as given. Do not extend or modify it. The schema: ${String(Res.readBytes("files/chat-agent-response-scheme.json"))}
-            3. Always begin with a 'query' type, presenting the very first reasoning step and asking the user to confirm before continuing.
-            4. Use the 'query' type for every intermediate step, including the final reasoning step that leads to the answer—do not reveal the final answer until explicitly confirmed.
-            5. Use the 'success' type only after the user has confirmed the last reasoning step, and only then include the complete solution.
-            """
-//            """
-//            You are an adviser. You must take the user's prompt and respond with expert-level advice. You must ask user questions until you're absolutely certain of your advice.
-//            Your response must strictly follow these rules:
-//            1. Output valid JSON only. Do not wrap it in code markers or add any extra content.
-//            2. Use the provided JSON schema exactly as given. Do not extend or modify it. The schema: ${String(Res.readBytes("files/chat-agent-response-scheme.json"))}
-//            3. Use the 'query' type to ask the user for additional details. The 'question' property must contain only one your question.
-//            4. Use the 'success' type only when you are absolutely certain of your advice, have no unresolved questions, and can provide clear, confident advice.
-//            """
-        ))
-    }
-
-    internal fun ask(prompt: String) {
-        addToContext(LlmContextElement.User(prompt = prompt))
-        scope.launch(Dispatchers.IO) {
-            _llm.postChatCompletions(
-                context = _state.value.context,
-                creativity = _state.value.creativity,
-            )
-                .fold(
-                    onSuccess = { element -> addToContext(element) },
-                    onFailure = { error -> _state.value = _state.value.copy(error = error) }
-                )
-        }
-    }
-
-    private fun addToContext(element: LlmContextElement) {
-        val context = _state.value.context
-        _state.value = ChatAgentState(context + element)
-    }
-}
-
-internal data class ChatAgentState(
-    val context: List<LlmContextElement> = emptyList(),
-    val error: String? = null,
-    val creativity: Float = 0.7f,
-) {
-    init {
-        if (this.creativity < 0f || this.creativity > 2f)
-            throw IllegalArgumentException("Creativity should be within [0,2]!")
-    }
-}
-
-private class KtorLlmDataSource(apiKey: String) {
+internal class KtorLlmDataSource(apiKey: String) {
     private val _httpClient by lazy {
         HttpClient(CIO) {
             install(Logging) {
@@ -126,16 +56,64 @@ private class KtorLlmDataSource(apiKey: String) {
         classDiscriminator = "result"
     }
 
-    suspend fun postChatCompletions(
+    internal suspend fun compressContext(
+        context: List<LlmContextElement>,
+        creativity: Float,
+    ): Result<String, List<LlmContextElement>> {
+        val chatConversation = context
+            .filter { it !is LlmContextElement.System }
+            .let {
+                if (it.last() is LlmContextElement.User)
+                    it - it.last()
+                else
+                    it
+            }
+            .map { it.toMessageDto() }
+        val payload = RequestDto(
+            model = "mistralai/mistral-7b-instruct:free",
+            messages = chatConversation + MessageDto(role = "user", content = "Give me a summary of our chat."),
+            temperature = creativity,
+        )
+        return try {
+            _httpClient
+                .post { setBody(payload) }
+                .let { response ->
+                    when (response.status) {
+                        HttpStatusCode.OK ->
+                            response.body<ResponseDto>()
+                                .let { responseDto ->
+                                    val compressed = responseDto.choices?.first()?.message?.content
+                                    if (compressed != null)
+                                        LlmContextElement.User(compressed).asSuccess()
+                                    else
+                                        "LLM Error: Responded with null".asFailure()
+                                }
+                        else -> "LLM Error: Network failed".asFailure()
+                    }
+                }
+                .next { compressedElement ->
+                    val last = context.last()
+                    if (last is LlmContextElement.User)
+                        (context.filter { it is LlmContextElement.System } + compressedElement + last).asSuccess()
+                    else
+                        (context.filter { it is LlmContextElement.System } + compressedElement).asSuccess()
+                }
+        }
+        catch (e: Exception) {
+            e.printStackTrace()
+            "LLM Error: Unexpected exception".asFailure()
+        }
+    }
+
+    internal suspend fun postChatCompletions(
         context: List<LlmContextElement>,
         creativity: Float,
     ): Result<String, LlmContextElement> {
-        println("postChatCompletions")
         val payload = RequestDto(
-            model = "tngtech/deepseek-r1t2-chimera:free",
+            model = "mistralai/mistral-7b-instruct:free",
             messages = context.map { it.toMessageDto() },
             responseFormat = FormatDto(type = "json_object"),
-            provider = ProviderDto(only = listOf("chutes")),
+//            provider = ProviderDto(only = listOf("chutes")),
             temperature = creativity,
         )
         val start = TimeSource.Monotonic.markNow()
@@ -150,13 +128,17 @@ private class KtorLlmDataSource(apiKey: String) {
                                     val content = responseDto.choices?.first()?.message?.content
                                     val reasoning = responseDto.choices?.first()?.message?.reasoning
                                     val usedTokens = responseDto.usage?.totalTokens
-                                    if (content == null || usedTokens == null)
-                                        "LLM Error: Invalid content or usedTokens".asFailure()
+                                    val promptTokens = responseDto.usage?.promptTokens
+                                    val completionTokens = responseDto.usage?.completionTokens
+                                    if (content == null || usedTokens == null || promptTokens == null || completionTokens == null)
+                                        "LLM Error: Invalid content or usage".asFailure()
                                     else
                                         LlmContextElement.Llm(
                                             content = _json.decodeFromString<LlmContent>(content),
                                             reasoning = reasoning,
                                             usedTokens = usedTokens,
+                                            promptTokens = promptTokens,
+                                            completionTokens = completionTokens,
                                             elapsedMs = start.elapsedNow().inWholeMilliseconds,
                                         ).asSuccess()
                                 }
@@ -188,7 +170,10 @@ private class KtorLlmDataSource(apiKey: String) {
                     content = when (content) {
                         is LlmContent.Failed -> content.description
                         is LlmContent.Queried -> content.question
-                        is LlmContent.Succeed -> content.summary
+                        is LlmContent.Succeed ->
+                            "## ${content.header}\n" +
+                                    "${content.details.joinToString("\n")}\n" +
+                                    "### Summary\n${content.summary}"
                     },
                 )
 
@@ -202,9 +187,9 @@ private data class RequestDto(
     @SerialName("messages")
     val messages: List<MessageDto>,
     @SerialName("response_format")
-    val responseFormat: FormatDto,
-    @SerialName("provider")
-    val provider: ProviderDto,
+    val responseFormat: FormatDto? = null,
+//    @SerialName("provider")
+//    val provider: ProviderDto,
     @SerialName("temperature")
     val temperature: Float,
 )
@@ -249,4 +234,8 @@ private data class MessageDto(
 private data class UsageDto(
     @SerialName("total_tokens")
     val totalTokens: Int?,
+    @SerialName("prompt_tokens")
+    val promptTokens: Int?,
+    @SerialName("completion_tokens")
+    val completionTokens: Int?,
 )

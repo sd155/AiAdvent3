@@ -47,6 +47,8 @@ internal class ChatViewModel(apiKey: String) : ViewModel() {
                                 reason = element.content.description,
                                 creativity = creativity,
                                 usedTokens = element.usedTokens,
+                                promptTokens = element.promptTokens,
+                                completionTokens = element.completionTokens,
                                 reasoning = element.reasoning,
                                 elapsedMs = element.elapsedMs,
                             )
@@ -55,6 +57,8 @@ internal class ChatViewModel(apiKey: String) : ViewModel() {
                                 question = element.content.question,
                                 creativity = creativity,
                                 usedTokens = element.usedTokens,
+                                promptTokens = element.promptTokens,
+                                completionTokens = element.completionTokens,
                                 reasoning = element.reasoning,
                                 elapsedMs = element.elapsedMs,
                             )
@@ -63,6 +67,8 @@ internal class ChatViewModel(apiKey: String) : ViewModel() {
                                 header = element.content.header,
                                 creativity = creativity,
                                 usedTokens = element.usedTokens,
+                                promptTokens = element.promptTokens,
+                                completionTokens = element.completionTokens,
                                 reasoning = element.reasoning,
                                 details = element.content.details,
                                 summary = element.content.summary,

@@ -10,6 +10,8 @@ internal sealed class LlmContextElement {
         val content: LlmContent,
         val reasoning: String? = null,
         val usedTokens: Int,
+        val promptTokens: Int,
+        val completionTokens: Int,
         val elapsedMs: Long,
     ) : LlmContextElement()
 }

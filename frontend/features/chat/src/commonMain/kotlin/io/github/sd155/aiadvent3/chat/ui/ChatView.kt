@@ -165,7 +165,7 @@ private fun RemoteSuccess(state: ChatMessage.LlmSuccess) {
         style = MaterialTheme.typography.labelMedium,
     )
     Text(
-        text = stringResource(Res.string.used_tokens_value, state.usedTokens),
+        text = stringResource(Res.string.used_tokens_value, state.promptTokens, state.completionTokens, state.usedTokens),
         color = MaterialTheme.colorScheme.secondary,
         style = MaterialTheme.typography.labelMedium,
     )
@@ -232,7 +232,7 @@ private fun RemoteQuery(state: ChatMessage.LlmQuery) {
         style = MaterialTheme.typography.labelMedium,
     )
     Text(
-        text = stringResource(Res.string.used_tokens_value, state.usedTokens),
+        text = stringResource(Res.string.used_tokens_value, state.promptTokens, state.completionTokens, state.usedTokens),
         color = MaterialTheme.colorScheme.secondary,
         style = MaterialTheme.typography.labelMedium,
     )
@@ -276,7 +276,7 @@ private fun RemoteFailure(state: ChatMessage.LlmFailure) {
         style = MaterialTheme.typography.labelMedium,
     )
     Text(
-        text = stringResource(Res.string.used_tokens_value, state.usedTokens),
+        text = stringResource(Res.string.used_tokens_value, state.promptTokens, state.completionTokens, state.usedTokens),
         color = MaterialTheme.colorScheme.secondary,
         style = MaterialTheme.typography.labelMedium,
     )
