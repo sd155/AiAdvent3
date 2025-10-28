@@ -61,18 +61,32 @@ internal class ChatAgent(
         ))
     }
 
-    internal fun ask(prompt: String) {
-        addToContext(LlmContextElement.User(prompt = prompt))
-        scope.launch(Dispatchers.IO) {
-            _llm.postChatCompletions(
-                context = _state.value.context,
-                creativity = _state.value.creativity,
+    internal suspend fun ask(prompt: String) {
+        val toolsResponse = KtorMcpClient().fetchTools()
+            .fold(
+                onFailure = { error -> "I can't use tools, error: $error" },
+                onSuccess = { tools ->
+                    tools.joinToString("\n- ") { tool -> "name: ${tool.name}, description: ${tool.description}" }
+                        .let { "I can use ${tools.size} tools:\n- $it" }
+                }
             )
-                .fold(
-                    onSuccess = { element -> addToContext(element) },
-                    onFailure = { error -> _state.value = _state.value.copy(error = error) }
-                )
-        }
+        addToContext(LlmContextElement.Llm(
+            usedTokens = 0,
+            elapsedMs = 0L,
+            content = LlmContent.Queried(question = toolsResponse)
+        ))
+
+//        addToContext(LlmContextElement.User(prompt = prompt))
+//        scope.launch(Dispatchers.IO) {
+//            _llm.postChatCompletions(
+//                context = _state.value.context,
+//                creativity = _state.value.creativity,
+//            )
+//                .fold(
+//                    onSuccess = { element -> addToContext(element) },
+//                    onFailure = { error -> _state.value = _state.value.copy(error = error) }
+//                )
+//        }
     }
 
     private fun addToContext(element: LlmContextElement) {

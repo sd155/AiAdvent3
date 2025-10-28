@@ -27,7 +27,7 @@ internal class ChatViewModel(apiKey: String) : ViewModel() {
 
     internal fun onViewIntent(intent: ChatViewIntent) = viewModelScope.launch(Dispatchers.Default) {
         when (intent) {
-            is ChatViewIntent.UserPrompted -> _agent.ask(intent.prompt)
+            is ChatViewIntent.UserPrompted -> viewModelScope.launch(Dispatchers.Default) { _agent.ask(intent.prompt) }
         }
     }
 

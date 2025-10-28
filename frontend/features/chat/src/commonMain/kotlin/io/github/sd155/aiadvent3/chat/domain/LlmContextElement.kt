@@ -20,7 +20,7 @@ internal sealed class LlmContent {
     @SerialName("success")
     data class Succeed(
         @SerialName("result")
-        val result: String,
+        val result: String = "success",
         @SerialName("header")
         val header: String,
         @SerialName("summary")
@@ -32,7 +32,7 @@ internal sealed class LlmContent {
     @SerialName("failure")
     data class Failed(
         @SerialName("result")
-        val result: String,
+        val result: String = "failure",
         @SerialName("description")
         val description: String,
     ) : LlmContent()
@@ -40,7 +40,7 @@ internal sealed class LlmContent {
     @SerialName("query")
     data class Queried(
         @SerialName("result")
-        val result: String,
+        val result: String = "query",
         @SerialName("question")
         val question: String,
     ) : LlmContent()
