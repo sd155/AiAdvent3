@@ -174,15 +174,15 @@ private fun RemoteSuccess(state: ChatMessage.LlmSuccess) {
         color = MaterialTheme.colorScheme.secondary,
         style = MaterialTheme.typography.labelMedium,
     )
-    Text(
-        modifier = Modifier
-            .padding(10.dp)
-            .fillMaxWidth(),
-        text = state.header,
-        color = MaterialTheme.colorScheme.secondary,
-        style = MaterialTheme.typography.titleLarge,
-        textAlign = TextAlign.Center,
-    )
+//    Text(
+//        modifier = Modifier
+//            .padding(10.dp)
+//            .fillMaxWidth(),
+//        text = state.header,
+//        color = MaterialTheme.colorScheme.secondary,
+//        style = MaterialTheme.typography.titleLarge,
+//        textAlign = TextAlign.Center,
+//    )
     state.reasoning?.let { reasoning ->
         Text(
             modifier = Modifier.padding(horizontal = 25.dp, vertical = 10.dp),
@@ -197,20 +197,20 @@ private fun RemoteSuccess(state: ChatMessage.LlmSuccess) {
             style = MaterialTheme.typography.bodySmall,
         )
     }
-    state.details.forEach { detail ->
-        Text(
-            modifier = Modifier.padding(10.dp),
-            text = detail,
-            color = MaterialTheme.colorScheme.secondary,
-            style = MaterialTheme.typography.bodyMedium,
-        )
-    }
-    Text(
-        modifier = Modifier.padding(10.dp),
-        text = stringResource(Res.string.summary_label),
-        color = MaterialTheme.colorScheme.secondary,
-        style = MaterialTheme.typography.labelLarge,
-    )
+//    state.details.forEach { detail ->
+//        Text(
+//            modifier = Modifier.padding(10.dp),
+//            text = detail,
+//            color = MaterialTheme.colorScheme.secondary,
+//            style = MaterialTheme.typography.bodyMedium,
+//        )
+//    }
+//    Text(
+//        modifier = Modifier.padding(10.dp),
+//        text = stringResource(Res.string.summary_label),
+//        color = MaterialTheme.colorScheme.secondary,
+//        style = MaterialTheme.typography.labelLarge,
+//    )
     Text(
         modifier = Modifier.padding(10.dp),
         text = state.summary,

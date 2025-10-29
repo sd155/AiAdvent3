@@ -3,10 +3,12 @@ package io.github.sd155.aiadvent3.chat.domain
 import io.github.sd155.aiadvent3.utils.Result
 import io.github.sd155.aiadvent3.utils.asFailure
 import io.github.sd155.aiadvent3.utils.asSuccess
+import kotlinx.coroutines.delay
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
@@ -20,9 +22,11 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
 internal class KtorMcpClient : AutoCloseable {
+    private val _serverUrl = "http://0.0.0.0:8181/mcp"
     private var webSocket: WebSocket? = null
     private var toolsLatch: CountDownLatch? = null
     private var receivedTools: List<McpTool>? = null
+    private var receivedFileContent: String? = null
     private var error: String? = null
     private var requestId = 0
     private val _client = OkHttpClient()
@@ -31,13 +35,13 @@ internal class KtorMcpClient : AutoCloseable {
         isLenient = true
     }
 
-    internal suspend fun fetchTools(serverUrl: String = "http://0.0.0.0:8181/mcp"): Result<String, List<McpTool>> {
+    internal suspend fun fetchTools(): Result<String, List<McpTool>> {
         return try {
             toolsLatch = CountDownLatch(1)
             receivedTools = null
             error = null
-            val request = Request.Builder().url(serverUrl).build()
-            webSocket = _client.newWebSocket(request, createWebSocketListener())
+            val request = Request.Builder().url(_serverUrl).build()
+            webSocket = _client.newWebSocket(request, createToolsListListener())
             val success = toolsLatch?.await(15, TimeUnit.SECONDS) == true
             if (success) {
                 error?.asFailure()
@@ -48,15 +52,67 @@ internal class KtorMcpClient : AutoCloseable {
                 "Connection timeout".asFailure()
             }
 
-        } catch (e: Exception) {
+        }
+        catch (e: Exception) {
             e.printStackTrace()
             "MCP unexpected error".asFailure()
         } finally {
             close()
+            delay(500)
         }
     }
 
-    private fun createWebSocketListener(): WebSocketListener =
+    internal suspend fun writeFile(fileName: String, text: String): Result<String, Unit> {
+        return try {
+            toolsLatch = CountDownLatch(1)
+            error = null
+            val request = Request.Builder().url(_serverUrl).build()
+            webSocket = _client.newWebSocket(request, createWriteFileToolListener(fileName = fileName, fileContent = text))
+            val success = toolsLatch?.await(15, TimeUnit.SECONDS) == true
+            if (success) {
+                error?.asFailure()
+                    ?: Unit.asSuccess()
+            }
+            else {
+                "Connection timeout".asFailure()
+            }
+        }
+        catch (e: Exception) {
+            e.printStackTrace()
+            "MCP unexpected error".asFailure()
+        } finally {
+            close()
+            delay(500)
+        }
+    }
+
+    internal suspend fun readFile(fileName: String): Result<String, String> {
+        return try {
+            toolsLatch = CountDownLatch(1)
+            error = null
+            receivedFileContent = null
+            val request = Request.Builder().url(_serverUrl).build()
+            webSocket = _client.newWebSocket(request, createReadFileToolListener(fileName))
+            val success = toolsLatch?.await(15, TimeUnit.SECONDS) == true
+            if (success) {
+                error?.asFailure()
+                    ?: receivedFileContent?.asSuccess()
+                    ?: "Empty file content received".asFailure()
+            }
+            else {
+                "Connection timeout".asFailure()
+            }
+        }
+        catch (e: Exception) {
+            e.printStackTrace()
+            "MCP unexpected error".asFailure()
+        } finally {
+            close()
+            delay(500)
+        }
+    }
+
+    private fun createToolsListListener(): WebSocketListener =
         object : WebSocketListener() {
 
             override fun onOpen(webSocket: WebSocket, response: Response) {
@@ -64,6 +120,7 @@ internal class KtorMcpClient : AutoCloseable {
                     id = ++requestId,
                     method = "tools/list",
                     params = buildJsonObject {
+                        put("name", "list_tools")
                         put("protocolVersion", "a1")
                         putJsonObject("capabilities") {
                             putJsonObject("tools") { put("listChanged", true) }
@@ -83,7 +140,6 @@ internal class KtorMcpClient : AutoCloseable {
 
             override fun onMessage(webSocket: WebSocket, text: String) {
                 try {
-                    println("McpClient: Received: $text")
                     val response = _json.decodeFromString<McpResponse>(text)
                     if (response.error != null) {
                         error = "Tools response failed: ${response.error.message}"
@@ -100,6 +156,96 @@ internal class KtorMcpClient : AutoCloseable {
                     }
 
                 } catch (e: Exception) {
+                    println("McpClient ERROR: ${e.message}")
+                    error = "McpClient ERROR: ${e.message}"
+                    toolsLatch?.countDown()
+                }
+            }
+
+            override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                println("McpClient: Connection failed: ${t.message}")
+                error = "Connection failed: ${t.message}"
+                toolsLatch?.countDown()
+            }
+
+            override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+                println("McpClient: WebSocket closed: $reason")
+                toolsLatch?.countDown()
+            }
+        }
+
+    private fun createReadFileToolListener(fileName: String): WebSocketListener =
+        object : WebSocketListener() {
+
+            override fun onOpen(webSocket: WebSocket, response: Response) {
+                McpRequest(
+                    id = ++requestId,
+                    method = "tools/call",
+                    params = buildJsonObject {
+                        put("name", "read_file")
+                        putJsonObject("arguments") {
+                            put("name", fileName)
+                        }
+                    }
+                )
+                    .let { _json.encodeToString(it) }
+                    .also {
+                        println("McpClient sends: $it")
+                        webSocket.send(it)
+                    }
+            }
+
+            override fun onMessage(webSocket: WebSocket, text: String) {
+                try {
+                    receivedFileContent = (Json.parseToJsonElement(text) as JsonObject)["data"].toString()
+                    toolsLatch?.countDown()
+                }
+                catch (e: Exception) {
+                    println("McpClient ERROR: ${e.message}")
+                    error = "McpClient ERROR: ${e.message}"
+                    toolsLatch?.countDown()
+                }
+            }
+
+            override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                println("McpClient: Connection failed: ${t.message}")
+                error = "Connection failed: ${t.message}"
+                toolsLatch?.countDown()
+            }
+
+            override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+                println("McpClient: WebSocket closed: $reason")
+                toolsLatch?.countDown()
+            }
+        }
+
+    private fun createWriteFileToolListener(fileName: String, fileContent: String): WebSocketListener =
+        object : WebSocketListener() {
+
+            override fun onOpen(webSocket: WebSocket, response: Response) {
+                McpRequest(
+                    id = ++requestId,
+                    method = "tools/call",
+                    params = buildJsonObject {
+                        put("name", "write_file")
+                        putJsonObject("arguments") {
+                            put("name", fileName)
+                            put("content", fileContent)
+                        }
+                    }
+                )
+                    .let { _json.encodeToString(it) }
+                    .also {
+                        println("McpClient sends: $it")
+                        webSocket.send(it)
+                    }
+            }
+
+            override fun onMessage(webSocket: WebSocket, text: String) {
+                try {
+                    toolsLatch?.countDown()
+                }
+                catch (e: Exception) {
                     println("McpClient ERROR: ${e.message}")
                     error = "McpClient ERROR: ${e.message}"
                     toolsLatch?.countDown()

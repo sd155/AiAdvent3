@@ -4,7 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.sd155.aiadvent3.chat.domain.ChatAgent
 import io.github.sd155.aiadvent3.chat.domain.ChatAgentState
-import io.github.sd155.aiadvent3.chat.domain.LlmContent
+//import io.github.sd155.aiadvent3.chat.domain.LlmContent
 import io.github.sd155.aiadvent3.chat.domain.LlmContextElement
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -41,34 +41,43 @@ internal class ChatViewModel(apiKey: String) : ViewModel() {
             when (element) {
                 is LlmContextElement.User -> ChatMessage.UserMessage(element.prompt)
                 is LlmContextElement.Llm -> {
-                    when (element.content) {
-                        is LlmContent.Failed ->
-                            ChatMessage.LlmFailure(
-                                reason = element.content.description,
-                                creativity = creativity,
-                                usedTokens = element.usedTokens,
-                                reasoning = element.reasoning,
-                                elapsedMs = element.elapsedMs,
-                            )
-                        is LlmContent.Queried ->
-                            ChatMessage.LlmQuery(
-                                question = element.content.question,
-                                creativity = creativity,
-                                usedTokens = element.usedTokens,
-                                reasoning = element.reasoning,
-                                elapsedMs = element.elapsedMs,
-                            )
-                        is LlmContent.Succeed ->
-                            ChatMessage.LlmSuccess(
-                                header = element.content.header,
-                                creativity = creativity,
-                                usedTokens = element.usedTokens,
-                                reasoning = element.reasoning,
-                                details = element.content.details,
-                                summary = element.content.summary,
-                                elapsedMs = element.elapsedMs,
-                            )
-                    }
+                    ChatMessage.LlmSuccess(
+                        header = element.content,
+                        creativity = creativity,
+                        usedTokens = element.usedTokens,
+                        reasoning = element.reasoning,
+                        details = emptyList(),
+                        summary = element.content,
+                        elapsedMs = element.elapsedMs,
+                    )
+//                    when (element.content) {
+//                        is LlmContent.Failed ->
+//                            ChatMessage.LlmFailure(
+//                                reason = element.content.description,
+//                                creativity = creativity,
+//                                usedTokens = element.usedTokens,
+//                                reasoning = element.reasoning,
+//                                elapsedMs = element.elapsedMs,
+//                            )
+//                        is LlmContent.Queried ->
+//                            ChatMessage.LlmQuery(
+//                                question = element.content.question,
+//                                creativity = creativity,
+//                                usedTokens = element.usedTokens,
+//                                reasoning = element.reasoning,
+//                                elapsedMs = element.elapsedMs,
+//                            )
+//                        is LlmContent.Succeed ->
+//                            ChatMessage.LlmSuccess(
+//                                header = element.content.header,
+//                                creativity = creativity,
+//                                usedTokens = element.usedTokens,
+//                                reasoning = element.reasoning,
+//                                details = element.content.details,
+//                                summary = element.content.summary,
+//                                elapsedMs = element.elapsedMs,
+//                            )
+//                    }
                 }
                 else -> null
             }

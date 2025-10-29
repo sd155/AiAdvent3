@@ -27,6 +27,13 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonObject
 import kotlin.time.TimeSource
 
 internal class ChatAgent(
@@ -34,59 +41,74 @@ internal class ChatAgent(
     private val scope: CoroutineScope,
 ) {
     private val _llm by lazy { KtorLlmDataSource(apiKey) }
+    private val _mcp by lazy { KtorMcpClient() }
     private val _state = MutableStateFlow(ChatAgentState())
     internal val state: StateFlow<ChatAgentState> = _state.asStateFlow()
+    private var funcs: List<LlmFunctionDto>? = null
 
     init { scope.launch(Dispatchers.IO) { initializeContext() } }
 
     private suspend fun initializeContext() {
         addToContext(LlmContextElement.System(prompt =
             """
-            You are a logical solver. Your task is to solve the user's logic problem interactively by decomposing it into a sequence of clear reasoning steps. You must present these steps one at a time and wait for user confirmation before proceeding.
-            Your response must strictly follow these rules:
-            1. Output valid JSON only. Do not wrap it in code markers or add any extra content.
-            2. Use the provided JSON schema exactly as given. Do not extend or modify it. The schema: ${String(Res.readBytes("files/chat-agent-response-scheme.json"))}
-            3. Always begin with a 'query' type, presenting the very first reasoning step and asking the user to confirm before continuing.
-            4. Use the 'query' type for every intermediate step, including the final reasoning step that leads to the answer—do not reveal the final answer until explicitly confirmed.
-            5. Use the 'success' type only after the user has confirmed the last reasoning step, and only then include the complete solution.
+            You are a personal assistant.
             """
-//            """
-//            You are an adviser. You must take the user's prompt and respond with expert-level advice. You must ask user questions until you're absolutely certain of your advice.
-//            Your response must strictly follow these rules:
-//            1. Output valid JSON only. Do not wrap it in code markers or add any extra content.
-//            2. Use the provided JSON schema exactly as given. Do not extend or modify it. The schema: ${String(Res.readBytes("files/chat-agent-response-scheme.json"))}
-//            3. Use the 'query' type to ask the user for additional details. The 'question' property must contain only one your question.
-//            4. Use the 'success' type only when you are absolutely certain of your advice, have no unresolved questions, and can provide clear, confident advice.
-//            """
         ))
-    }
 
-    internal suspend fun ask(prompt: String) {
-        val toolsResponse = KtorMcpClient().fetchTools()
+        _mcp.fetchTools()
             .fold(
                 onFailure = { error -> "I can't use tools, error: $error" },
                 onSuccess = { tools ->
-                    tools.joinToString("\n- ") { tool -> "name: ${tool.name}, description: ${tool.description}" }
-                        .let { "I can use ${tools.size} tools:\n- $it" }
+                    funcs = tools.map { tool ->
+                        LlmFunctionDto(
+                            type = "function",
+                            function = buildJsonObject {
+                                put("name", tool.name)
+                                put("description", tool.description)
+                                put("parameters", Json.parseToJsonElement(tool.inputSchema) as JsonObject)
+                            }
+                        )
+                    }
                 }
             )
-        addToContext(LlmContextElement.Llm(
-            usedTokens = 0,
-            elapsedMs = 0L,
-            content = LlmContent.Queried(question = toolsResponse)
-        ))
+    }
 
-//        addToContext(LlmContextElement.User(prompt = prompt))
-//        scope.launch(Dispatchers.IO) {
-//            _llm.postChatCompletions(
-//                context = _state.value.context,
-//                creativity = _state.value.creativity,
-//            )
-//                .fold(
-//                    onSuccess = { element -> addToContext(element) },
-//                    onFailure = { error -> _state.value = _state.value.copy(error = error) }
-//                )
-//        }
+    internal suspend fun ask(prompt: String) {
+
+
+
+        addToContext(LlmContextElement.User(prompt = prompt))
+        scope.launch(Dispatchers.IO) {
+            _llm.postChatCompletions(
+                context = _state.value.context,
+                creativity = _state.value.creativity,
+                functions = funcs ?: throw IllegalStateException("No tools available!"),
+            )
+                .fold(
+                    onSuccess = { element ->
+                        addToContext(element)
+                        if (element.toolArgs != null) {
+                            val fileContent = _mcp.readFile(fileName = element.toolArgs)
+                                .fold(
+                                    onFailure = { error -> "Failed to read file, error: $error" },
+                                    onSuccess = { fileContent -> fileContent }
+                                )
+                                .also { println("READ RESPONSE: $it") }
+                            addToContext(LlmContextElement.Tool(content = fileContent))
+                            _llm.postChatCompletions(
+                                context = _state.value.context,
+                                creativity = _state.value.creativity,
+                                functions = funcs ?: throw IllegalStateException("No tools available!"),
+                            )
+                                .fold(
+                                    onFailure = { error -> _state.value = _state.value.copy(error = error) },
+                                    onSuccess = { element -> addToContext(element) }
+                                )
+                        }
+                    },
+                    onFailure = { error -> _state.value = _state.value.copy(error = error) }
+                )
+        }
     }
 
     private fun addToContext(element: LlmContextElement) {
@@ -143,14 +165,15 @@ private class KtorLlmDataSource(apiKey: String) {
     suspend fun postChatCompletions(
         context: List<LlmContextElement>,
         creativity: Float,
-    ): Result<String, LlmContextElement> {
-        println("postChatCompletions")
+        functions: List<LlmFunctionDto>,
+    ): Result<String, LlmContextElement.Llm> {
         val payload = RequestDto(
-            model = "tngtech/deepseek-r1t2-chimera:free",
+            model = "z-ai/glm-4.5-air:free",
             messages = context.map { it.toMessageDto() },
-            responseFormat = FormatDto(type = "json_object"),
-            provider = ProviderDto(only = listOf("chutes")),
+//            responseFormat = FormatDto(type = "json_object"),
+//            provider = ProviderDto(only = listOf("chutes")),
             temperature = creativity,
+            tools = functions,
         )
         val start = TimeSource.Monotonic.markNow()
         return try {
@@ -161,18 +184,35 @@ private class KtorLlmDataSource(apiKey: String) {
                         HttpStatusCode.OK ->
                             response.body<ResponseDto>()
                                 .let { responseDto ->
+                                    val toolCall = responseDto.choices?.first()?.message?.toolCalls?.first()
                                     val content = responseDto.choices?.first()?.message?.content
                                     val reasoning = responseDto.choices?.first()?.message?.reasoning
                                     val usedTokens = responseDto.usage?.totalTokens
                                     if (content == null || usedTokens == null)
                                         "LLM Error: Invalid content or usedTokens".asFailure()
-                                    else
+                                    else if (toolCall != null) {
+                                        val toolFun = Json.parseToJsonElement(toolCall["function"].toString()) as JsonObject
+                                        val toolArg = toolFun["arguments"]?.jsonPrimitive?.contentOrNull
+                                            ?.let { Json.parseToJsonElement(it).jsonObject }
+                                            ?: throw RuntimeException()
                                         LlmContextElement.Llm(
-                                            content = _json.decodeFromString<LlmContent>(content),
+                                            content = content,
+                                            reasoning = reasoning,
+                                            usedTokens = usedTokens,
+                                            elapsedMs = start.elapsedNow().inWholeMilliseconds,
+                                            toolId = toolCall["id"].toString(),
+                                            tool = toolFun["name"]?.jsonPrimitive?.content,
+                                            toolArgs = toolArg["name"]?.jsonPrimitive?.content,
+                                        ).asSuccess()
+                                    }
+                                    else {
+                                        LlmContextElement.Llm(
+                                            content = content,
                                             reasoning = reasoning,
                                             usedTokens = usedTokens,
                                             elapsedMs = start.elapsedNow().inWholeMilliseconds,
                                         ).asSuccess()
+                                    }
                                 }
                         else -> "LLM Error: Network failed".asFailure()
                     }
@@ -199,13 +239,24 @@ private class KtorLlmDataSource(apiKey: String) {
             is LlmContextElement.Llm ->
                 MessageDto(
                     role = "assistant",
-                    content = when (content) {
-                        is LlmContent.Failed -> content.description
-                        is LlmContent.Queried -> content.question
-                        is LlmContent.Succeed -> content.summary
-                    },
+                    content = content,
+                    toolCalls = if (tool != null)
+                        listOf(
+                            buildJsonObject {
+                                put("id", toolId)
+                                put("type", "function")
+                                putJsonObject("function") {
+                                    put("name", tool)
+                                }
+                            }
+                        )
+                    else null
                 )
-
+            is LlmContextElement.Tool ->
+                MessageDto(
+                    role = "tool",
+                    content = content,
+                )
         }
 }
 
@@ -216,11 +267,21 @@ private data class RequestDto(
     @SerialName("messages")
     val messages: List<MessageDto>,
     @SerialName("response_format")
-    val responseFormat: FormatDto,
+    val responseFormat: FormatDto? = null,
     @SerialName("provider")
-    val provider: ProviderDto,
+    val provider: ProviderDto? = null,
     @SerialName("temperature")
     val temperature: Float,
+    @SerialName("tools")
+    val tools: List<LlmFunctionDto>?,
+)
+
+@Serializable
+private data class LlmFunctionDto(
+    @SerialName("type")
+    val type: String,
+    @SerialName("function")
+    val function: JsonObject,
 )
 
 @Serializable
@@ -257,6 +318,24 @@ private data class MessageDto(
     val content: String?,
     @SerialName("reasoning")
     val reasoning: String? = null,
+    @SerialName("tool_calls")
+    val toolCalls: List<JsonObject>? = null,
+)
+
+@Serializable
+private data class ToolCall(
+    @SerialName("id")
+    val id: String?,
+    @SerialName("function")
+    val functionCall: String?,
+)
+
+@Serializable
+private data class FunctionCall(
+    @SerialName("name")
+    val name: String?,
+    @SerialName("arguments")
+    val arguments: String?,
 )
 
 @Serializable
