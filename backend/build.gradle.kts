@@ -35,4 +35,5 @@ dependencies {
     implementation(libs.ktor.server.contentNegotiation)
     implementation(libs.ktor.serializationJson)
     implementation(libs.slf4j.simple)
+    implementation("io.modelcontextprotocol:kotlin-sdk:0.7.4")
 }
