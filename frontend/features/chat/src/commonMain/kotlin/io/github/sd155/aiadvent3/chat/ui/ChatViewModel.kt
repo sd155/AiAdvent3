@@ -10,7 +10,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 internal class ChatViewModel(apiKey: String) : ViewModel() {
-    private val _dispatcher by lazy { AgentDispatcher(apiKey) }
+    private val _dispatcher = AgentDispatcher(apiKey) { _state.value.reduceWithCheckerUpdate(it) }
     private val _state = MutableStateFlow(ChatViewState())
     internal val state: StateFlow<ChatViewState> = _state.asStateFlow()
 
@@ -19,12 +19,27 @@ internal class ChatViewModel(apiKey: String) : ViewModel() {
             is ChatViewIntent.UserPrompted -> {
                 _state.value.reduceWithUserMessage(intent.prompt)
                 val response = _dispatcher.chat(intent.prompt)
-                _state.value.reduceWithLlmMessage(response)
+                _state.value.reduceWithChattyMessage(response)
             }
         }
     }
 
-    private fun ChatViewState.reduceWithLlmMessage(response: String) {
+    private fun ChatViewState.reduceWithCheckerUpdate(text: String) {
+        val agentMessage = ChatMessage.AgentMessage(
+            agentTag = "@Checker",
+            content = text,
+        )
+        val updated =
+            if (messages.isNotEmpty() && messages.last() is ChatMessage.AgentProgress)
+                messages - messages.last() + agentMessage + ChatMessage.AgentProgress
+            else
+                messages + agentMessage
+        _state.value.reduce {
+            copy(updated)
+        }
+    }
+
+    private fun ChatViewState.reduceWithChattyMessage(response: String) {
         val agentMessage = ChatMessage.AgentMessage(
             agentTag = "@Chatty",
             content = response,
