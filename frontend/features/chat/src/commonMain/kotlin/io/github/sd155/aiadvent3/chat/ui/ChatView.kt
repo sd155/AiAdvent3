@@ -1,21 +1,12 @@
 package io.github.sd155.aiadvent3.chat.ui
 
 import aiadvent3.frontend.features.chat.generated.resources.Res
-import aiadvent3.frontend.features.chat.generated.resources.creativity_value
-import aiadvent3.frontend.features.chat.generated.resources.elapsed_time_ms
-import aiadvent3.frontend.features.chat.generated.resources.failed_label
 import aiadvent3.frontend.features.chat.generated.resources.llm_progress
 import aiadvent3.frontend.features.chat.generated.resources.prompt_hint
-import aiadvent3.frontend.features.chat.generated.resources.question_label
-import aiadvent3.frontend.features.chat.generated.resources.reasoning_label
-import aiadvent3.frontend.features.chat.generated.resources.succeed_label
-import aiadvent3.frontend.features.chat.generated.resources.summary_label
-import aiadvent3.frontend.features.chat.generated.resources.used_tokens_value
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -44,7 +35,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
@@ -88,12 +78,9 @@ private fun MessageList(
     ) {
         itemsIndexed(messages) { index, message ->
             when (message) {
-                is ChatMessage.UserMessage -> LocalBubble(message.content)
-                is ChatMessage.LlmError -> RemoteError(message.content)
-                is ChatMessage.LlmSuccess -> RemoteBubble { RemoteSuccess(message) }
-                is ChatMessage.LlmQuery -> RemoteBubble { RemoteQuery(message) }
-                is ChatMessage.LlmFailure -> RemoteBubble { RemoteFailure(message) }
-                ChatMessage.LlmProgress -> RemoteLoading()
+                is ChatMessage.UserMessage -> UserBubble(message)
+                ChatMessage.AgentProgress -> AgentProgress()
+                is ChatMessage.AgentMessage -> AgentBubble(message)
             }
             if (index < messages.size - 1)
                 Spacer(modifier = Modifier.height(8.dp))
@@ -112,7 +99,7 @@ private fun MessageList(
 }
 
 @Composable
-private fun LocalBubble(content: String) =
+private fun UserBubble(message: ChatMessage.UserMessage) =
     Row(
         modifier = Modifier
             .fillMaxWidth(),
@@ -128,19 +115,21 @@ private fun LocalBubble(content: String) =
                 .weight(2f),
         ) {
             Text(
-                text = content,
+                modifier = Modifier.padding(10.dp),
+                text = message.content,
                 color = MaterialTheme.colorScheme.primary,
+                style = MaterialTheme.typography.bodyMedium,
             )
         }
     }
 
 @Composable
-private fun RemoteBubble(content: @Composable ColumnScope.() -> Unit) =
+private fun AgentBubble(message: ChatMessage.AgentMessage) =
     Row(
         modifier = Modifier
             .fillMaxWidth(),
     ) {
-        Box(
+        Column(
             modifier = Modifier
                 .background(
                     color = MaterialTheme.colorScheme.secondaryContainer,
@@ -148,167 +137,24 @@ private fun RemoteBubble(content: @Composable ColumnScope.() -> Unit) =
                 )
                 .padding(16.dp)
                 .weight(2f),
-        ) { Column { content() } }
+        ) {
+            Text(
+                text = message.agentTag,
+                color = MaterialTheme.colorScheme.secondary,
+                style = MaterialTheme.typography.labelMedium,
+            )
+            Text(
+                modifier = Modifier.padding(10.dp),
+                text = message.content,
+                color = MaterialTheme.colorScheme.secondary,
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        }
         Spacer(modifier = Modifier.weight(1f))
     }
 
 @Composable
-private fun RemoteSuccess(state: ChatMessage.LlmSuccess) {
-    Text(
-        text = stringResource(Res.string.succeed_label),
-        color = MaterialTheme.colorScheme.secondary,
-        style = MaterialTheme.typography.labelMedium,
-    )
-    Text(
-        text = stringResource(Res.string.creativity_value, state.creativity),
-        color = MaterialTheme.colorScheme.secondary,
-        style = MaterialTheme.typography.labelMedium,
-    )
-    Text(
-        text = stringResource(Res.string.used_tokens_value, state.usedTokens),
-        color = MaterialTheme.colorScheme.secondary,
-        style = MaterialTheme.typography.labelMedium,
-    )
-    Text(
-        text = stringResource(Res.string.elapsed_time_ms, state.elapsedMs),
-        color = MaterialTheme.colorScheme.secondary,
-        style = MaterialTheme.typography.labelMedium,
-    )
-    Text(
-        modifier = Modifier
-            .padding(10.dp)
-            .fillMaxWidth(),
-        text = state.header,
-        color = MaterialTheme.colorScheme.secondary,
-        style = MaterialTheme.typography.titleLarge,
-        textAlign = TextAlign.Center,
-    )
-    state.reasoning?.let { reasoning ->
-        Text(
-            modifier = Modifier.padding(horizontal = 25.dp, vertical = 10.dp),
-            text = stringResource(Res.string.reasoning_label),
-            color = MaterialTheme.colorScheme.outline,
-            style = MaterialTheme.typography.bodySmall,
-        )
-        Text(
-            modifier = Modifier.padding(horizontal = 25.dp, vertical = 10.dp),
-            text = reasoning,
-            color = MaterialTheme.colorScheme.outline,
-            style = MaterialTheme.typography.bodySmall,
-        )
-    }
-    state.details.forEach { detail ->
-        Text(
-            modifier = Modifier.padding(10.dp),
-            text = detail,
-            color = MaterialTheme.colorScheme.secondary,
-            style = MaterialTheme.typography.bodyMedium,
-        )
-    }
-    Text(
-        modifier = Modifier.padding(10.dp),
-        text = stringResource(Res.string.summary_label),
-        color = MaterialTheme.colorScheme.secondary,
-        style = MaterialTheme.typography.labelLarge,
-    )
-    Text(
-        modifier = Modifier.padding(10.dp),
-        text = state.summary,
-        color = MaterialTheme.colorScheme.secondary,
-        style = MaterialTheme.typography.bodyMedium,
-    )
-}
-
-@Composable
-private fun RemoteQuery(state: ChatMessage.LlmQuery) {
-    Text(
-        text = stringResource(Res.string.question_label),
-        color = MaterialTheme.colorScheme.secondary,
-        style = MaterialTheme.typography.labelMedium,
-    )
-    Text(
-        text = stringResource(Res.string.creativity_value, state.creativity),
-        color = MaterialTheme.colorScheme.secondary,
-        style = MaterialTheme.typography.labelMedium,
-    )
-    Text(
-        text = stringResource(Res.string.used_tokens_value, state.usedTokens),
-        color = MaterialTheme.colorScheme.secondary,
-        style = MaterialTheme.typography.labelMedium,
-    )
-    Text(
-        text = stringResource(Res.string.elapsed_time_ms, state.elapsedMs),
-        color = MaterialTheme.colorScheme.secondary,
-        style = MaterialTheme.typography.labelMedium,
-    )
-    state.reasoning?.let { reasoning ->
-        Text(
-            modifier = Modifier.padding(horizontal = 25.dp, vertical = 10.dp),
-            text = stringResource(Res.string.reasoning_label),
-            color = MaterialTheme.colorScheme.outline,
-            style = MaterialTheme.typography.bodySmall,
-        )
-        Text(
-            modifier = Modifier.padding(horizontal = 25.dp, vertical = 10.dp),
-            text = reasoning,
-            color = MaterialTheme.colorScheme.outline,
-            style = MaterialTheme.typography.bodySmall,
-        )
-    }
-    Text(
-        modifier = Modifier.padding(10.dp),
-        text = state.question,
-        color = MaterialTheme.colorScheme.secondary,
-        style = MaterialTheme.typography.bodyMedium
-    )
-}
-
-@Composable
-private fun RemoteFailure(state: ChatMessage.LlmFailure) {
-    Text(
-        text = stringResource(Res.string.failed_label),
-        color = MaterialTheme.colorScheme.secondary,
-        style = MaterialTheme.typography.labelMedium,
-    )
-    Text(
-        text = stringResource(Res.string.creativity_value, state.creativity),
-        color = MaterialTheme.colorScheme.secondary,
-        style = MaterialTheme.typography.labelMedium,
-    )
-    Text(
-        text = stringResource(Res.string.used_tokens_value, state.usedTokens),
-        color = MaterialTheme.colorScheme.secondary,
-        style = MaterialTheme.typography.labelMedium,
-    )
-    Text(
-        text = stringResource(Res.string.elapsed_time_ms, state.elapsedMs),
-        color = MaterialTheme.colorScheme.secondary,
-        style = MaterialTheme.typography.labelMedium,
-    )
-    state.reasoning?.let { reasoning ->
-        Text(
-            modifier = Modifier.padding(horizontal = 25.dp, vertical = 10.dp),
-            text = stringResource(Res.string.reasoning_label),
-            color = MaterialTheme.colorScheme.outline,
-            style = MaterialTheme.typography.bodySmall,
-        )
-        Text(
-            modifier = Modifier.padding(horizontal = 25.dp, vertical = 10.dp),
-            text = reasoning,
-            color = MaterialTheme.colorScheme.outline,
-            style = MaterialTheme.typography.bodySmall,
-        )
-    }
-    Text(
-        modifier = Modifier.padding(10.dp),
-        text = state.reason,
-        color = MaterialTheme.colorScheme.secondary,
-        style = MaterialTheme.typography.bodyMedium
-    )
-}
-
-@Composable
-private fun RemoteLoading() =
+private fun AgentProgress() =
     Row(
         modifier = Modifier
             .fillMaxWidth(),
@@ -324,26 +170,6 @@ private fun RemoteLoading() =
             text = stringResource(Res.string.llm_progress),
             color = MaterialTheme.colorScheme.secondary,
         )
-    }
-
-@Composable
-private fun RemoteError(content: String) =
-    Row(
-        modifier = Modifier
-            .fillMaxWidth(),
-    ) {
-        Box(
-            modifier = Modifier
-                .background(color = MaterialTheme.colorScheme.errorContainer)
-                .padding(16.dp)
-                .weight(2f),
-        ) {
-            Text(
-                text = content,
-                color = MaterialTheme.colorScheme.onError,
-            )
-        }
-        Spacer(modifier = Modifier.weight(1f))
     }
 
 @Composable

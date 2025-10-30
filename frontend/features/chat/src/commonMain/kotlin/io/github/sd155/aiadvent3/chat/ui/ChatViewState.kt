@@ -6,29 +6,17 @@ internal data class ChatViewState(
 
 internal sealed class ChatMessage {
     data class UserMessage(val content: String) : ChatMessage()
-    data object LlmProgress : ChatMessage()
-    data class LlmSuccess(
-        val header: String,
-        val creativity: Float,
-        val usedTokens: Int,
-        val reasoning: String?,
-        val details: List<String>,
-        val summary: String,
-        val elapsedMs: Long,
+    data object AgentProgress : ChatMessage()
+    data class AgentMessage(
+        val agentTag: String,
+        val content: String,
+        val reasoning: String? = null,
     ) : ChatMessage()
-    data class LlmQuery(
-        val question: String,
-        val creativity: Float,
-        val usedTokens: Int,
-        val reasoning: String?,
-        val elapsedMs: Long,
-    ) : ChatMessage()
-    data class LlmFailure(
-        val reason: String,
-        val creativity: Float,
-        val usedTokens: Int,
-        val reasoning: String?,
-        val elapsedMs: Long,
-    ) : ChatMessage()
-    data class LlmError(val content: String) : ChatMessage()
+//    data class LlmError(val content: String) : ChatMessage()
 }
+
+internal data class LlmMetrics(
+    val creativity: Float,
+    val usedTokens: Int,
+    val elapsedMs: Long,
+)

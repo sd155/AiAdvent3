@@ -26,6 +26,7 @@ kotlin {
             implementation(libs.ktor.client.serialization)
             implementation(libs.slf4j.simple)
             implementation(projects.frontend.features.utils)
+            implementation("ai.koog:koog-agents:0.5.2")
         }
     }
 } 
