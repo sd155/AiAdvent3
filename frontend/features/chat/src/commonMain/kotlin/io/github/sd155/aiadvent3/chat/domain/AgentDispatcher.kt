@@ -8,12 +8,10 @@ import ai.koog.prompt.executor.llms.all.simpleOpenRouterExecutor
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 internal class AgentDispatcher(
     private val apiKey: String,
-    private val onTodoCheck: (String) -> Unit,
 ) {
     private val _chatty = AIAgent(
         promptExecutor = simpleOpenRouterExecutor(apiKey),
@@ -42,14 +40,10 @@ internal class AgentDispatcher(
     init {
         CoroutineScope(SupervisorJob() + Dispatchers.Default).launch {
             checkerToolRegistry = McpToolRegistryProvider.fromTransport(
-                transport = McpToolRegistryProvider.defaultSseTransport("http://0.0.0.0:8181"),
+                transport = McpToolRegistryProvider.defaultSseTransport("http://127.0.0.1:8181"),
                 name = "Todo_MCP_client",
-                version = "0.0.1"
+                version = "0.0.2"
             )
-            while(true) {
-                delay(5000)
-                check()
-            }
         }
     }
 
@@ -57,14 +51,15 @@ internal class AgentDispatcher(
         return _chatty.run(prompt)
     }
 
-    internal suspend fun check() {
+    internal suspend fun check(prompt: String): String {
         val checker = AIAgent(
             promptExecutor = simpleOpenRouterExecutor(apiKey),
-            systemPrompt = """Your job is to group loaded todos.
+            systemPrompt = """You are an assistant to help user deal with todos.
                     |Todo rules:
-                    |`*` - means pending todo,
-                    |`+` - means completed todo,
-                    |`-` - means failed/canceled todo.""".trimMargin(),
+                    |1. one todo is one line.
+                    |2. `*` means pending todo.
+                    |3. `+` means completed todo.
+                    |4. `-` means failed/canceled todo.""".trimMargin(),
             llmModel = OpenRouterFreeModels.Glm4_5_Air_Moe,
             temperature = 0.1,
             toolRegistry = checkerToolRegistry,
@@ -100,7 +95,6 @@ internal class AgentDispatcher(
                 }
             }
         }
-        val checkerResult = checker.run("Load todos for 29.10.2025.")
-        onTodoCheck(checkerResult)
+        return checker.run(prompt)
     }
 }

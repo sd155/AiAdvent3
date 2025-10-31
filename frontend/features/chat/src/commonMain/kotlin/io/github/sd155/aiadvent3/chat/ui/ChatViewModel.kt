@@ -10,7 +10,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 internal class ChatViewModel(apiKey: String) : ViewModel() {
-    private val _dispatcher = AgentDispatcher(apiKey) { _state.value.reduceWithCheckerUpdate(it) }
+    private val _dispatcher = AgentDispatcher(apiKey)
     private val _state = MutableStateFlow(ChatViewState())
     internal val state: StateFlow<ChatViewState> = _state.asStateFlow()
 
@@ -18,8 +18,10 @@ internal class ChatViewModel(apiKey: String) : ViewModel() {
         when (intent) {
             is ChatViewIntent.UserPrompted -> {
                 _state.value.reduceWithUserMessage(intent.prompt)
-                val response = _dispatcher.chat(intent.prompt)
-                _state.value.reduceWithChattyMessage(response)
+                if (intent.prompt.contains("@Checker"))
+                    _state.value.reduceWithCheckerUpdate(_dispatcher.check(intent.prompt))
+                else
+                    _state.value.reduceWithChattyMessage(_dispatcher.chat(intent.prompt))
             }
         }
     }
