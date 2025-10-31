@@ -1,6 +1,0 @@
-- eat then repeat
-- walk and talk
-* jump out of bed
-+ think twice
-+ run around the chair
-* take a nap

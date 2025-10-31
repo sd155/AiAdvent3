@@ -15,7 +15,7 @@ group = libs.versions.application.namespace.get()
 version = libs.versions.application.version.name.get()
 
 application {
-    mainClass.set("io.github.sd155.aiadvent3.MainMcpServerKt")
+    mainClass.set(libs.versions.application.namespace.get() + ".mcp.todo.MainTodoMcpServerKt")
 }
 java {
     sourceCompatibility = _javaVersion
@@ -35,5 +35,5 @@ dependencies {
     implementation(libs.ktor.server.contentNegotiation)
     implementation(libs.ktor.serializationJson)
     implementation(libs.slf4j.simple)
-    implementation("io.modelcontextprotocol:kotlin-sdk:0.7.4")
+    implementation(libs.mcp.sdk)
 }

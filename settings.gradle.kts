@@ -35,4 +35,4 @@ plugins {
 include(":frontend:apps")
 include(":frontend:features:utils")
 include(":frontend:features:chat")
-include(":backend")
+include(":backend:mcp:todo")

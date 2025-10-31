@@ -41,8 +41,9 @@ ktor-server-contentNegotiation = { module = "io.ktor:ktor-server-content-negotia
 ktor-server-testHost = { module = "io.ktor:ktor-server-test-host-jvm", version.ref = "ktor" }
 google-gson = { module = "com.google.code.gson:gson", version = "2.13.1" } # Java lib
 google-zxing-core = { module = "com.google.zxing:core", version = "3.5.3" } # Java lib
-sd155-kmplogs-api = { module = "io.github.sd155:kmplogs-api", version.ref = "kmplogs"}
-sd155-kmplogs-core = { module = "io.github.sd155:kmplogs-core", version.ref = "kmplogs"}
+sd155-kmplogs-api = { module = "io.github.sd155:kmplogs-api", version.ref = "kmplogs" }
+sd155-kmplogs-core = { module = "io.github.sd155:kmplogs-core", version.ref = "kmplogs" }
+mcp-sdk = { module = "io.modelcontextprotocol:kotlin-sdk", version = "0.7.4" }
 #Compose
 compose-material = { module = "org.jetbrains.compose.material:material", version = "1.9.0" }
 compose-navigation = { module = "org.jetbrains.androidx.navigation:navigation-compose", version = "2.9.0-beta02" } # Compose integration with Navigation
