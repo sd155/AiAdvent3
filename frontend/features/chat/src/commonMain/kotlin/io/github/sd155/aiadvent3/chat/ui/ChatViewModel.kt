@@ -3,6 +3,8 @@ package io.github.sd155.aiadvent3.chat.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.sd155.aiadvent3.chat.domain.AgentDispatcher
+import io.github.sd155.aiadvent3.chat.domain.agents.ChattyAgent
+import io.github.sd155.aiadvent3.chat.domain.agents.TaskSchedulerAgent
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -10,7 +12,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 internal class ChatViewModel(apiKey: String) : ViewModel() {
-    private val _dispatcher = AgentDispatcher(apiKey)
+    private val _dispatcher = LazySuspendValue<AgentDispatcher> { AgentDispatcher(apiKey) }
     private val _state = MutableStateFlow(ChatViewState())
     internal val state: StateFlow<ChatViewState> = _state.asStateFlow()
 
@@ -18,17 +20,17 @@ internal class ChatViewModel(apiKey: String) : ViewModel() {
         when (intent) {
             is ChatViewIntent.UserPrompted -> {
                 _state.value.reduceWithUserMessage(intent.prompt)
-                if (intent.prompt.contains("@Checker"))
-                    _state.value.reduceWithCheckerUpdate(_dispatcher.check(intent.prompt))
+                if (intent.prompt.contains(TaskSchedulerAgent.tag))
+                    _state.value.reduceWithCheckerUpdate(_dispatcher.get().toTaskScheduler(intent.prompt))
                 else
-                    _state.value.reduceWithChattyMessage(_dispatcher.chat(intent.prompt))
+                    _state.value.reduceWithChattyMessage(_dispatcher.get().toChatty(intent.prompt))
             }
         }
     }
 
     private fun ChatViewState.reduceWithCheckerUpdate(text: String) {
         val agentMessage = ChatMessage.AgentMessage(
-            agentTag = "@Checker",
+            agentTag = TaskSchedulerAgent.tag,
             content = text,
         )
         val updated =
@@ -43,7 +45,7 @@ internal class ChatViewModel(apiKey: String) : ViewModel() {
 
     private fun ChatViewState.reduceWithChattyMessage(response: String) {
         val agentMessage = ChatMessage.AgentMessage(
-            agentTag = "@Chatty",
+            agentTag = ChattyAgent.tag,
             content = response,
         )
         val updated =
@@ -66,4 +68,15 @@ internal class ChatViewModel(apiKey: String) : ViewModel() {
         _state.value = reducer(this)
         return this
     }
+}
+
+private class LazySuspendValue<T>(private val loader: suspend () -> T) {
+    private var value: T? = null
+
+    suspend fun get(): T = value
+        ?: let {
+            val loaded = loader()
+            value = loaded
+            loaded
+        }
 }
