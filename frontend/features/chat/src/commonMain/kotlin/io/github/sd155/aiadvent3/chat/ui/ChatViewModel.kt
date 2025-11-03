@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.sd155.aiadvent3.chat.domain.AgentDispatcher
 import io.github.sd155.aiadvent3.chat.domain.agents.ChattyAgent
+import io.github.sd155.aiadvent3.chat.domain.agents.CliAgent
 import io.github.sd155.aiadvent3.chat.domain.agents.TaskSchedulerAgent
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,14 +22,31 @@ internal class ChatViewModel(apiKey: String) : ViewModel() {
             is ChatViewIntent.UserPrompted -> {
                 _state.value.reduceWithUserMessage(intent.prompt)
                 if (intent.prompt.contains(TaskSchedulerAgent.tag))
-                    _state.value.reduceWithCheckerUpdate(_dispatcher.get().toTaskScheduler(intent.prompt))
+                    _state.value.reduceWithTaskerUpdate(_dispatcher.get().toTaskScheduler(intent.prompt))
+                else if (intent.prompt.contains(CliAgent.tag))
+                    _state.value.reduceWithCleoMessage(_dispatcher.get().toCleo(intent.prompt))
                 else
                     _state.value.reduceWithChattyMessage(_dispatcher.get().toChatty(intent.prompt))
             }
         }
     }
 
-    private fun ChatViewState.reduceWithCheckerUpdate(text: String) {
+    private fun ChatViewState.reduceWithCleoMessage(text: String) {
+        val agentMessage = ChatMessage.AgentMessage(
+            agentTag = CliAgent.tag,
+            content = text,
+        )
+        val updated =
+            if (messages.last() is ChatMessage.AgentProgress)
+                messages - messages.last() + agentMessage
+            else
+                messages + agentMessage
+        _state.value.reduce {
+            copy(updated)
+        }
+    }
+
+    private fun ChatViewState.reduceWithTaskerUpdate(text: String) {
         val agentMessage = ChatMessage.AgentMessage(
             agentTag = TaskSchedulerAgent.tag,
             content = text,
