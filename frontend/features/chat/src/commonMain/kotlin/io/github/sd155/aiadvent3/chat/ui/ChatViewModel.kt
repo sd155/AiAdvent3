@@ -3,6 +3,7 @@ package io.github.sd155.aiadvent3.chat.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.sd155.aiadvent3.chat.domain.AgentDispatcher
+import io.github.sd155.aiadvent3.chat.domain.agents.BuggyAgent
 import io.github.sd155.aiadvent3.chat.domain.agents.ChattyAgent
 import io.github.sd155.aiadvent3.chat.domain.agents.CliAgent
 import io.github.sd155.aiadvent3.chat.domain.agents.TaskSchedulerAgent
@@ -17,6 +18,14 @@ internal class ChatViewModel(apiKey: String) : ViewModel() {
     private val _state = MutableStateFlow(ChatViewState())
     internal val state: StateFlow<ChatViewState> = _state.asStateFlow()
 
+    init {
+        viewModelScope.launch(Dispatchers.Default) {
+            BuggyAgent.state.collect { progress ->
+                progress?.let { _state.value.reduceWithBuggyMessage(it) }
+            }
+        }
+    }
+
     internal fun onViewIntent(intent: ChatViewIntent) = viewModelScope.launch(Dispatchers.Default) {
         when (intent) {
             is ChatViewIntent.UserPrompted -> {
@@ -25,9 +34,26 @@ internal class ChatViewModel(apiKey: String) : ViewModel() {
                     _state.value.reduceWithTaskerUpdate(_dispatcher.get().toTaskScheduler(intent.prompt))
                 else if (intent.prompt.contains(CliAgent.tag))
                     _state.value.reduceWithCleoMessage(_dispatcher.get().toCleo(intent.prompt))
+                else if (intent.prompt.contains(BuggyAgent.tag))
+                    _state.value.reduceWithBuggyMessage(_dispatcher.get().toBuggy(intent.prompt))
                 else
                     _state.value.reduceWithChattyMessage(_dispatcher.get().toChatty(intent.prompt))
             }
+        }
+    }
+
+    private fun ChatViewState.reduceWithBuggyMessage(text: String) {
+        val agentMessage = ChatMessage.AgentMessage(
+            agentTag = BuggyAgent.tag,
+            content = text,
+        )
+        val updated =
+            if (messages.last() is ChatMessage.AgentProgress)
+                messages - messages.last() + agentMessage
+            else
+                messages + agentMessage
+        _state.value.reduce {
+            copy(updated)
         }
     }
 
