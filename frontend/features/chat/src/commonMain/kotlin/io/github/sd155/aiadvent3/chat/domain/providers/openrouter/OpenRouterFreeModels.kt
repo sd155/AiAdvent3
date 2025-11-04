@@ -1,4 +1,4 @@
-package io.github.sd155.aiadvent3.chat.domain
+package io.github.sd155.aiadvent3.chat.domain.providers.openrouter
 
 import ai.koog.prompt.executor.clients.LLModelDefinitions
 import ai.koog.prompt.llm.LLMCapability

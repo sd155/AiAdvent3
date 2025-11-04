@@ -4,7 +4,7 @@ import ai.koog.agents.core.agent.AIAgent
 import ai.koog.agents.features.eventHandler.feature.handleEvents
 import ai.koog.agents.mcp.McpToolRegistryProvider
 import ai.koog.prompt.executor.llms.all.simpleOpenRouterExecutor
-import io.github.sd155.aiadvent3.chat.domain.OpenRouterFreeModels
+import io.github.sd155.aiadvent3.chat.domain.providers.openrouter.OpenRouterFreeModels
 
 internal object CliAgent : Agent<String, String> {
     override val tag: String = "@Cleo"
@@ -37,32 +37,32 @@ internal object CliAgent : Agent<String, String> {
         ) {
             handleEvents {
                 onAgentStarting { context ->
-                    println("${TaskSchedulerAgent.tag} started ${context.context}")
+                    println("${tag} started ${context.context}")
                 }
                 onAgentCompleted { context ->
-                    println("${TaskSchedulerAgent.tag} finished with result: ${context.result}")
+                    println("${tag} finished with result: ${context.result}")
                 }
                 onAgentExecutionFailed { context ->
-                    println("${TaskSchedulerAgent.tag} execution failed!")
+                    println("${tag} execution failed!")
                     context.throwable.printStackTrace()
                 }
                 onLLMCallStarting { context ->
-                    println("${TaskSchedulerAgent.tag} LLM call started: prompt:${context.prompt},\ntools:\n${context.tools.map { "name:${it.name}\ndesc:${it.description}" }}")
+                    println("${tag} LLM call started: prompt:${context.prompt},\ntools:\n${context.tools.map { "name:${it.name}\ndesc:${it.description}" }}")
                 }
                 onLLMCallCompleted { context ->
                     val responsesString = context.responses
                         .joinToString("\n") { """{"role":"${it.role}", "content":"${it.content}"}""" }
-                    println("${TaskSchedulerAgent.tag} LLM call completed:\n$responsesString")
+                    println("${tag} LLM call completed:\n$responsesString")
                 }
                 onToolCallFailed { context ->
-                    println("${TaskSchedulerAgent.tag} Tool failed, tool:${context.tool}, agrs:${context.toolArgs}")
+                    println("${tag} Tool failed, tool:${context.tool}, agrs:${context.toolArgs}")
                     context.throwable.printStackTrace()
                 }
                 onToolCallStarting { context ->
-                    println("${TaskSchedulerAgent.tag} Tool started, tool:${context.tool}, agrs:${context.toolArgs}")
+                    println("${tag} Tool started, tool:${context.tool}, agrs:${context.toolArgs}")
                 }
                 onToolCallCompleted { context ->
-                    println("${TaskSchedulerAgent.tag} Tool completed, result:${context.result}")
+                    println("${tag} Tool completed, result:${context.result}")
                 }
             }
         }

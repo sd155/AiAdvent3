@@ -3,7 +3,7 @@ package io.github.sd155.aiadvent3.chat.domain.agents
 import ai.koog.agents.core.agent.AIAgent
 import ai.koog.agents.features.eventHandler.feature.handleEvents
 import ai.koog.prompt.executor.llms.all.simpleOpenRouterExecutor
-import io.github.sd155.aiadvent3.chat.domain.OpenRouterFreeModels
+import io.github.sd155.aiadvent3.chat.domain.providers.openrouter.OpenRouterFreeModels
 
 internal object ChattyAgent : Agent<String, String> {
     override val tag: String = "@Chatty"
