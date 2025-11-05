@@ -19,4 +19,30 @@ internal object CloudruModels : LLModelDefinitions {
         contextLength = 262_144,
         maxOutputTokens = 262_144,
     )
+
+    internal val GigaChat_2_Max: LLModel = LLModel(
+        provider = CloudRuLlmProvider,
+        id = "GigaChat/GigaChat-2-Max",
+        capabilities = listOf(
+            LLMCapability.Temperature,
+            LLMCapability.Speculation,
+            LLMCapability.Completion,
+        ),
+        contextLength = 131_000,
+        maxOutputTokens = 131_000,
+    )
+
+    internal val MiniMax_M2: LLModel = LLModel(
+        provider = CloudRuLlmProvider,
+        id = "MiniMaxAI/MiniMax-M2",
+        capabilities = listOf(
+            LLMCapability.Temperature,
+            LLMCapability.Speculation,
+            LLMCapability.Tools,
+            LLMCapability.Completion,
+            LLMCapability.Schema.JSON.Standard,
+        ),
+        contextLength = 196_000,
+        maxOutputTokens = 196_000,
+    )
 }
