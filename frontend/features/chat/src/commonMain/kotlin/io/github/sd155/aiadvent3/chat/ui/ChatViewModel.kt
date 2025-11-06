@@ -1,5 +1,6 @@
 package io.github.sd155.aiadvent3.chat.ui
 
+import ai.koog.prompt.message.Message
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.sd155.aiadvent3.chat.domain.AgentDispatcher
@@ -20,6 +21,12 @@ internal class ChatViewModel(apiKey: String) : ViewModel() {
 
     init {
         viewModelScope.launch(Dispatchers.Default) {
+            ChattyAgent.loadContext().forEach {
+                if (it.role == Message.Role.User.name)
+                    _state.value.reduceWithUserMessage(it.content)
+                if (it.role == Message.Role.Assistant.name)
+                    _state.value.reduceWithChattyMessage(it.content)
+            }
             BuggyAgent.state.collect { progress ->
                 progress?.let { _state.value.reduceWithBuggyMessage(it) }
             }
