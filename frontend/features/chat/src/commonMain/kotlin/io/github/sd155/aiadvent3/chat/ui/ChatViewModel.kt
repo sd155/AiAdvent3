@@ -7,6 +7,7 @@ import io.github.sd155.aiadvent3.chat.domain.AgentDispatcher
 import io.github.sd155.aiadvent3.chat.domain.agents.BuggyAgent
 import io.github.sd155.aiadvent3.chat.domain.agents.ChattyAgent
 import io.github.sd155.aiadvent3.chat.domain.agents.CliAgent
+import io.github.sd155.aiadvent3.chat.domain.agents.GittyAgent
 import io.github.sd155.aiadvent3.chat.domain.agents.TaskSchedulerAgent
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -14,8 +15,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-internal class ChatViewModel(apiKey: String) : ViewModel() {
-    private val _dispatcher = LazySuspendValue<AgentDispatcher> { AgentDispatcher(apiKey) }
+internal class ChatViewModel(llmApiKey: String, githubApiKey: String) : ViewModel() {
+    private val _dispatcher = LazySuspendValue<AgentDispatcher> { AgentDispatcher(_llmApiKey = llmApiKey, _githubApiKey = githubApiKey) }
     private val _state = MutableStateFlow(ChatViewState())
     internal val state: StateFlow<ChatViewState> = _state.asStateFlow()
 
@@ -43,9 +44,26 @@ internal class ChatViewModel(apiKey: String) : ViewModel() {
                     _state.value.reduceWithCleoMessage(_dispatcher.get().toCleo(intent.prompt))
                 else if (intent.prompt.contains(BuggyAgent.tag))
                     _state.value.reduceWithBuggyMessage(_dispatcher.get().toBuggy(intent.prompt))
+                else if (intent.prompt.contains(GittyAgent.TAG))
+                    _state.value.reduceWithGittyMessage(_dispatcher.get().toGitty(intent.prompt))
                 else
                     _state.value.reduceWithChattyMessage(_dispatcher.get().toChatty(intent.prompt))
             }
+        }
+    }
+
+    private fun ChatViewState.reduceWithGittyMessage(text: String) {
+        val agentMessage = ChatMessage.AgentMessage(
+            agentTag = GittyAgent.TAG,
+            content = text,
+        )
+        val updated =
+            if (messages.last() is ChatMessage.AgentProgress)
+                messages - messages.last() + agentMessage
+            else
+                messages + agentMessage
+        _state.value.reduce {
+            copy(updated)
         }
     }
 

@@ -24,6 +24,7 @@ kotlinx-serialization-core = { module = "org.jetbrains.kotlinx:kotlinx-serializa
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "serialization" }
 kodein-di = { module = "org.kodein.di:kodein-di", version = "7.26.1" } # Kodein Core
 ktor-client-android = { module = "io.ktor:ktor-client-android", version.ref = "ktor" } # Kotlin lib
+ktor-client-auth = { module = "io.ktor:ktor-client-auth", version.ref = "ktor" }
 ktor-client-cio = { module = "io.ktor:ktor-client-cio", version.ref = "ktor" } # Kotlin lib
 ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktor" } # Kotlin lib
 ktor-client-ios = { module = "io.ktor:ktor-client-darwin", version.ref = "ktor" } # Kotlin lib

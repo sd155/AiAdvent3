@@ -16,7 +16,8 @@ private val _propFile = File(project.rootDir, "local.properties")
 if (_propFile.exists()) {
     _props.load(_propFile.inputStream())
 }
-private val _apiKey = _props.getProperty("API_KEY") ?: error("Missing API_KEY in local.properties")
+private val _llmKey = _props.getProperty("LLM_API_KEY") ?: error("Missing LLM_API_KEY in local.properties")
+private val _githubKey = _props.getProperty("GITHUB_API_KEY") ?: error("Missing GITHUB_API_KEY in local.properties")
 
 kotlin {
     jvmToolchain(_java.toInt())
@@ -113,7 +114,8 @@ compose.desktop {
 
 tasks.register("generateApiKey") {
     val outputDir = layout.buildDirectory.dir("generated/src")
-    inputs.property("apiKey", _apiKey)
+    inputs.property("llmApiKey", _llmKey)
+    inputs.property("githubApiKey", _githubKey)
     outputs.dir(outputDir)
 
     doLast {
@@ -122,7 +124,8 @@ tasks.register("generateApiKey") {
         file.writeText("""
             package io.github.sd155.aiadvent3.build
 
-            internal const val API_KEY = "$_apiKey"
+            internal const val LLM_API_KEY = "$_llmKey"
+            internal const val GITHUB_API_KEY = "$_githubKey"
         """.trimIndent())
     }
 }

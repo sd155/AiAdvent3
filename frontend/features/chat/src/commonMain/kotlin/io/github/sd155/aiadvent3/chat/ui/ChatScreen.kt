@@ -6,8 +6,8 @@ import androidx.compose.runtime.getValue
 import androidx.lifecycle.viewmodel.compose.viewModel
 
 @Composable
-fun ChatScreen(apiKey: String) {
-    val viewModel: ChatViewModel = viewModel { ChatViewModel(apiKey) }
+fun ChatScreen(llmApiKey: String, githubApiKey: String) {
+    val viewModel: ChatViewModel = viewModel { ChatViewModel(llmApiKey = llmApiKey, githubApiKey = githubApiKey) }
     val state by viewModel.state.collectAsState()
 
     ChatView(
