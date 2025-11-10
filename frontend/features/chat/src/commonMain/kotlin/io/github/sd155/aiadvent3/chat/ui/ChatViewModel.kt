@@ -8,6 +8,7 @@ import io.github.sd155.aiadvent3.chat.domain.agents.BuggyAgent
 import io.github.sd155.aiadvent3.chat.domain.agents.ChattyAgent
 import io.github.sd155.aiadvent3.chat.domain.agents.CliAgent
 import io.github.sd155.aiadvent3.chat.domain.agents.GittyAgent
+import io.github.sd155.aiadvent3.chat.domain.agents.ReviewerAgent
 import io.github.sd155.aiadvent3.chat.domain.agents.TaskSchedulerAgent
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -46,9 +47,26 @@ internal class ChatViewModel(llmApiKey: String, githubApiKey: String) : ViewMode
                     _state.value.reduceWithBuggyMessage(_dispatcher.get().toBuggy(intent.prompt))
                 else if (intent.prompt.contains(GittyAgent.TAG))
                     _state.value.reduceWithGittyMessage(_dispatcher.get().toGitty(intent.prompt))
+                else if (intent.prompt.contains(ReviewerAgent.TAG))
+                    _state.value.reduceWithReviewerMessage(_dispatcher.get().toReviewer(intent.prompt))
                 else
                     _state.value.reduceWithChattyMessage(_dispatcher.get().toChatty(intent.prompt))
             }
+        }
+    }
+
+    private fun ChatViewState.reduceWithReviewerMessage(text: String) {
+        val agentMessage = ChatMessage.AgentMessage(
+            agentTag = ReviewerAgent.TAG,
+            content = text,
+        )
+        val updated =
+            if (messages.last() is ChatMessage.AgentProgress)
+                messages - messages.last() + agentMessage
+            else
+                messages + agentMessage
+        _state.value.reduce {
+            copy(updated)
         }
     }
 
