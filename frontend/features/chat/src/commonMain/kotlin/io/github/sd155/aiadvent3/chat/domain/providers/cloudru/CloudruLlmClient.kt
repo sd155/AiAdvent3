@@ -3,6 +3,7 @@ package io.github.sd155.aiadvent3.chat.domain.providers.cloudru
 import ai.koog.prompt.dsl.ModerationResult
 import ai.koog.prompt.dsl.Prompt
 import ai.koog.prompt.executor.clients.ConnectionTimeoutConfig
+import ai.koog.prompt.executor.clients.LLMEmbeddingProvider
 import ai.koog.prompt.executor.clients.openai.base.AbstractOpenAILLMClient
 import ai.koog.prompt.executor.clients.openai.base.OpenAIBasedSettings
 import ai.koog.prompt.executor.clients.openai.base.models.Content
@@ -10,13 +11,17 @@ import ai.koog.prompt.executor.clients.openai.base.models.OpenAIMessage
 import ai.koog.prompt.executor.clients.openai.base.models.OpenAIStaticContent
 import ai.koog.prompt.executor.clients.openai.base.models.OpenAITool
 import ai.koog.prompt.executor.clients.openai.base.models.OpenAIToolChoice
+import ai.koog.prompt.executor.clients.openai.base.models.OpenAIUsage
 import ai.koog.prompt.executor.model.LLMChoice
+import ai.koog.prompt.llm.LLMCapability
 import ai.koog.prompt.llm.LLMProvider
 import ai.koog.prompt.llm.LLModel
 import ai.koog.prompt.params.LLMParams
 import ai.koog.prompt.streaming.StreamFrameFlowBuilder
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.client.HttpClient
+import io.ktor.client.plugins.logging.LogLevel
+import io.ktor.client.plugins.logging.Logging
 import kotlinx.datetime.Clock
 import kotlinx.serialization.Serializable
 
@@ -25,11 +30,14 @@ import kotlinx.serialization.Serializable
  *
  * @property baseUrl The base URL of the Cloud.ru API. Default is "https://foundation-models.api.cloud.ru/v1".
  * @property timeoutConfig Configuration for connection timeouts including request, connection, and socket timeouts.
+ * @property chatCompletionsPath - The path of the Cloud.ru Chat Completions API. Defaults to "v1/chat/completions".
+ * @property embeddingsPath - The path of the Cloud.ru Embeddings API. Defaults to "v1/embeddings".
  */
 internal class CloudruClientSettings(
     baseUrl: String = "https://foundation-models.api.cloud.ru",
     chatCompletionsPath: String = "v1/chat/completions",
-    timeoutConfig: ConnectionTimeoutConfig = ConnectionTimeoutConfig()
+    timeoutConfig: ConnectionTimeoutConfig = ConnectionTimeoutConfig(),
+    val embeddingsPath: String = "v1/embeddings",
 ) : OpenAIBasedSettings(baseUrl, chatCompletionsPath, timeoutConfig)
 
 /**
@@ -55,7 +63,7 @@ internal data object CloudRuLlmProvider : LLMProvider("cloudru", "CloudRu")
  */
 internal class CloudruLlmClient(
     apiKey: String,
-    baseClient: HttpClient = HttpClient(),
+    baseClient: HttpClient = HttpClient().config { install(Logging) { level = LogLevel.ALL } },
     clock: Clock = Clock.System,
     private val settings: CloudruClientSettings = CloudruClientSettings(),
 ) : AbstractOpenAILLMClient<CloudruChatCompletionResponse, CloudruChatCompletionStreamResponse>(
@@ -64,7 +72,8 @@ internal class CloudruLlmClient(
     baseClient,
     clock,
     staticLogger
-) {
+),
+    LLMEmbeddingProvider {
 
     private companion object {
         private val staticLogger = KotlinLogging.logger { }
@@ -159,4 +168,55 @@ internal class CloudruLlmClient(
         logger.warn { "Moderation is not supported by Cloud.ru API" }
         throw UnsupportedOperationException("Moderation is not supported by Cloud.ru API.")
     }
+
+    /**
+     * Embeds the given text using the OpenAI embeddings API.
+     *
+     * @param text The text to embed.
+     * @param model The model to use for embedding. Must have the Embed capability.
+     * @return A list of floating-point values representing the embedding.
+     * @throws IllegalArgumentException if the model does not have the Embed capability.
+     */
+    override suspend fun embed(text: String, model: LLModel): List<Double> {
+        model.requireCapability(LLMCapability.Embed)
+
+        logger.debug { "Embedding text with model: ${model.id}" }
+
+        val request = CloudruEmbeddingRequest(
+            model = model.id,
+            input = text
+        )
+
+        @Suppress("UnstableApiUsage")
+        val response = httpClient.post(
+            path = settings.embeddingsPath,
+            request = request,
+            requestBodyType = CloudruEmbeddingRequest::class,
+            responseType = CloudruEmbeddingResponse::class
+        )
+        if (response.data.isEmpty()) {
+            logger.error { "Empty data in Cloud.ru embedding response" }
+            error("Empty data in Cloud.ru embedding response")
+        }
+        return response.data.first().embedding
+    }
 }
+
+@Serializable
+internal data class CloudruEmbeddingRequest(
+    val model: String,
+    val input: String
+)
+
+@Serializable
+internal data class CloudruEmbeddingResponse(
+    val data: List<CloudruEmbeddingData>,
+    val model: String,
+    val usage: OpenAIUsage? = null
+)
+
+@Serializable
+internal data class CloudruEmbeddingData(
+    val embedding: List<Double>,
+    val index: Int
+)

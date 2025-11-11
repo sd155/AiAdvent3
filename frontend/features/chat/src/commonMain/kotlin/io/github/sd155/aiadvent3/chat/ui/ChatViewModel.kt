@@ -7,6 +7,7 @@ import io.github.sd155.aiadvent3.chat.domain.AgentDispatcher
 import io.github.sd155.aiadvent3.chat.domain.agents.BuggyAgent
 import io.github.sd155.aiadvent3.chat.domain.agents.ChattyAgent
 import io.github.sd155.aiadvent3.chat.domain.agents.CliAgent
+import io.github.sd155.aiadvent3.chat.domain.agents.EmbedderAgent
 import io.github.sd155.aiadvent3.chat.domain.agents.GittyAgent
 import io.github.sd155.aiadvent3.chat.domain.agents.ReviewerAgent
 import io.github.sd155.aiadvent3.chat.domain.agents.TaskSchedulerAgent
@@ -27,10 +28,10 @@ internal class ChatViewModel(llmApiKey: String, githubApiKey: String) : ViewMode
                 if (it.role == Message.Role.User.name)
                     _state.value.reduceWithUserMessage(it.content)
                 if (it.role == Message.Role.Assistant.name)
-                    _state.value.reduceWithChattyMessage(it.content)
+                    _state.value.reduceWithAgentMessage(agentTag = ChattyAgent.tag, text = it.content)
             }
             BuggyAgent.state.collect { progress ->
-                progress?.let { _state.value.reduceWithBuggyMessage(it) }
+                progress?.let { _state.value.reduceWithAgentMessage(agentTag = BuggyAgent.tag, text = it) }
             }
         }
     }
@@ -40,100 +41,48 @@ internal class ChatViewModel(llmApiKey: String, githubApiKey: String) : ViewMode
             is ChatViewIntent.UserPrompted -> {
                 _state.value.reduceWithUserMessage(intent.prompt)
                 if (intent.prompt.contains(TaskSchedulerAgent.tag))
-                    _state.value.reduceWithTaskerUpdate(_dispatcher.get().toTaskScheduler(intent.prompt))
+                    _state.value.reduceWithAgentMessage(
+                        agentTag = TaskSchedulerAgent.tag,
+                        text = _dispatcher.get().toTaskScheduler(intent.prompt)
+                    )
                 else if (intent.prompt.contains(CliAgent.tag))
-                    _state.value.reduceWithCleoMessage(_dispatcher.get().toCleo(intent.prompt))
+                    _state.value.reduceWithAgentMessage(
+                        agentTag = CliAgent.tag,
+                        text = _dispatcher.get().toCleo(intent.prompt)
+                    )
                 else if (intent.prompt.contains(BuggyAgent.tag))
-                    _state.value.reduceWithBuggyMessage(_dispatcher.get().toBuggy(intent.prompt))
+                    _state.value.reduceWithAgentMessage(
+                        agentTag = BuggyAgent.tag,
+                        text = _dispatcher.get().toBuggy(intent.prompt)
+                    )
                 else if (intent.prompt.contains(GittyAgent.TAG))
-                    _state.value.reduceWithGittyMessage(_dispatcher.get().toGitty(intent.prompt))
+                    _state.value.reduceWithAgentMessage(
+                        agentTag = GittyAgent.TAG,
+                        text = _dispatcher.get().toGitty(intent.prompt)
+                    )
                 else if (intent.prompt.contains(ReviewerAgent.TAG))
-                    _state.value.reduceWithReviewerMessage(_dispatcher.get().toReviewer(intent.prompt))
+                    _state.value.reduceWithAgentMessage(
+                        agentTag = ReviewerAgent.TAG,
+                        text = _dispatcher.get().toReviewer(intent.prompt)
+                    )
+                else if (intent.prompt.contains(EmbedderAgent.TAG))
+                    _state.value.reduceWithAgentMessage(
+                        agentTag = EmbedderAgent.TAG,
+                        text = _dispatcher.get().toEmbedder(intent.prompt)
+                    )
                 else
-                    _state.value.reduceWithChattyMessage(_dispatcher.get().toChatty(intent.prompt))
+                    _state.value.reduceWithAgentMessage(
+                        agentTag = ChattyAgent.tag,
+                        text = _dispatcher.get().toChatty(intent.prompt)
+                    )
             }
         }
     }
 
-    private fun ChatViewState.reduceWithReviewerMessage(text: String) {
+    private fun ChatViewState.reduceWithAgentMessage(text: String, agentTag: String) {
         val agentMessage = ChatMessage.AgentMessage(
-            agentTag = ReviewerAgent.TAG,
+            agentTag = agentTag,
             content = text,
-        )
-        val updated =
-            if (messages.last() is ChatMessage.AgentProgress)
-                messages - messages.last() + agentMessage
-            else
-                messages + agentMessage
-        _state.value.reduce {
-            copy(updated)
-        }
-    }
-
-    private fun ChatViewState.reduceWithGittyMessage(text: String) {
-        val agentMessage = ChatMessage.AgentMessage(
-            agentTag = GittyAgent.TAG,
-            content = text,
-        )
-        val updated =
-            if (messages.last() is ChatMessage.AgentProgress)
-                messages - messages.last() + agentMessage
-            else
-                messages + agentMessage
-        _state.value.reduce {
-            copy(updated)
-        }
-    }
-
-    private fun ChatViewState.reduceWithBuggyMessage(text: String) {
-        val agentMessage = ChatMessage.AgentMessage(
-            agentTag = BuggyAgent.tag,
-            content = text,
-        )
-        val updated =
-            if (messages.last() is ChatMessage.AgentProgress)
-                messages - messages.last() + agentMessage
-            else
-                messages + agentMessage
-        _state.value.reduce {
-            copy(updated)
-        }
-    }
-
-    private fun ChatViewState.reduceWithCleoMessage(text: String) {
-        val agentMessage = ChatMessage.AgentMessage(
-            agentTag = CliAgent.tag,
-            content = text,
-        )
-        val updated =
-            if (messages.last() is ChatMessage.AgentProgress)
-                messages - messages.last() + agentMessage
-            else
-                messages + agentMessage
-        _state.value.reduce {
-            copy(updated)
-        }
-    }
-
-    private fun ChatViewState.reduceWithTaskerUpdate(text: String) {
-        val agentMessage = ChatMessage.AgentMessage(
-            agentTag = TaskSchedulerAgent.tag,
-            content = text,
-        )
-        val updated =
-            if (messages.isNotEmpty() && messages.last() is ChatMessage.AgentProgress)
-                messages - messages.last() + agentMessage + ChatMessage.AgentProgress
-            else
-                messages + agentMessage
-        _state.value.reduce {
-            copy(updated)
-        }
-    }
-
-    private fun ChatViewState.reduceWithChattyMessage(response: String) {
-        val agentMessage = ChatMessage.AgentMessage(
-            agentTag = ChattyAgent.tag,
-            content = response,
         )
         val updated =
             if (messages.last() is ChatMessage.AgentProgress)
