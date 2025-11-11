@@ -40,7 +40,7 @@ internal class AgentDispatcher(private val _llmApiKey: String, private val _gith
             .run(prompt)
     }
 
-    internal suspend fun toEmbedder(prompt: String): String {
+    internal suspend fun toEmbedder(): String {
         return EmbedderAgent.buildEmbeddings(llmApiKey = _llmApiKey)
             .let { "Done" }
     }

@@ -67,7 +67,7 @@ internal object GittyAgent {
         |Output only:
         |{"sha": "head commit sha", "release_notes": "release notes combined on commit messages"}
     """
-    const val TAG: String = "@Gitty"
+    const val TAG: String = "Gitty"
     private var githubKey: String? = null
 
     private suspend fun fetchCommitsData(repoData: Pair<String, String>): String? {

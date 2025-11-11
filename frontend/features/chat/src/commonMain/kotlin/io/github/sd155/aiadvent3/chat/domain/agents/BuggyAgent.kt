@@ -21,7 +21,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 
 internal object BuggyAgent : Agent<String, String> {
     internal val state = MutableStateFlow<String?>(null)
-    override val tag: String = "@Buggy"
+    override val tag: String = "Buggy"
 
     override suspend fun create(llmApiKey: String): AIAgent<String, String> {
         val tools = McpToolRegistryProvider.fromTransport(

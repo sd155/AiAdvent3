@@ -7,7 +7,7 @@ import ai.koog.prompt.executor.llms.all.simpleOpenRouterExecutor
 import io.github.sd155.aiadvent3.chat.domain.providers.openrouter.OpenRouterFreeModels
 
 internal object CliAgent : Agent<String, String> {
-    override val tag: String = "@Cleo"
+    override val tag: String = "Cleo"
 
     override suspend fun create(llmApiKey: String): AIAgent<String, String> {
         val tools = McpToolRegistryProvider.fromTransport(

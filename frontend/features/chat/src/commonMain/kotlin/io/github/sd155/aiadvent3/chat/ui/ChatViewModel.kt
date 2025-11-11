@@ -40,43 +40,61 @@ internal class ChatViewModel(llmApiKey: String, githubApiKey: String) : ViewMode
         when (intent) {
             is ChatViewIntent.UserPrompted -> {
                 _state.value.reduceWithUserMessage(intent.prompt)
-                if (intent.prompt.contains(TaskSchedulerAgent.tag))
-                    _state.value.reduceWithAgentMessage(
-                        agentTag = TaskSchedulerAgent.tag,
-                        text = _dispatcher.get().toTaskScheduler(intent.prompt)
-                    )
-                else if (intent.prompt.contains(CliAgent.tag))
-                    _state.value.reduceWithAgentMessage(
-                        agentTag = CliAgent.tag,
-                        text = _dispatcher.get().toCleo(intent.prompt)
-                    )
-                else if (intent.prompt.contains(BuggyAgent.tag))
-                    _state.value.reduceWithAgentMessage(
-                        agentTag = BuggyAgent.tag,
-                        text = _dispatcher.get().toBuggy(intent.prompt)
-                    )
-                else if (intent.prompt.contains(GittyAgent.TAG))
-                    _state.value.reduceWithAgentMessage(
-                        agentTag = GittyAgent.TAG,
-                        text = _dispatcher.get().toGitty(intent.prompt)
-                    )
-                else if (intent.prompt.contains(ReviewerAgent.TAG))
-                    _state.value.reduceWithAgentMessage(
-                        agentTag = ReviewerAgent.TAG,
-                        text = _dispatcher.get().toReviewer(intent.prompt)
-                    )
-                else if (intent.prompt.contains(EmbedderAgent.TAG))
-                    _state.value.reduceWithAgentMessage(
-                        agentTag = EmbedderAgent.TAG,
-                        text = _dispatcher.get().toEmbedder(intent.prompt)
-                    )
-                else
-                    _state.value.reduceWithAgentMessage(
-                        agentTag = ChattyAgent.tag,
-                        text = _dispatcher.get().toChatty(intent.prompt)
-                    )
+                val userPrompt = intent.prompt.toPrompt()
+                when (val tag = userPrompt.agentTag) {
+                    TaskSchedulerAgent.tag ->
+                        _state.value.reduceWithAgentMessage(
+                            agentTag = tag,
+                            text = _dispatcher.get().toTaskScheduler(userPrompt.content)
+                        )
+                    CliAgent.tag ->
+                        _state.value.reduceWithAgentMessage(
+                            agentTag = tag,
+                            text = _dispatcher.get().toCleo(userPrompt.content)
+                        )
+                    BuggyAgent.tag ->
+                        _state.value.reduceWithAgentMessage(
+                            agentTag = tag,
+                            text = _dispatcher.get().toBuggy(userPrompt.content)
+                        )
+                    GittyAgent.TAG ->
+                        _state.value.reduceWithAgentMessage(
+                            agentTag = tag,
+                            text = _dispatcher.get().toGitty(userPrompt.content)
+                        )
+                    ReviewerAgent.TAG ->
+                        _state.value.reduceWithAgentMessage(
+                            agentTag = tag,
+                            text = _dispatcher.get().toReviewer(userPrompt.content)
+                        )
+                    EmbedderAgent.TAG ->
+                        _state.value.reduceWithAgentMessage(
+                            agentTag = tag,
+                            text = _dispatcher.get().toEmbedder()
+                        )
+                    else ->
+                        _state.value.reduceWithAgentMessage(
+                            agentTag = ChattyAgent.tag,
+                            text = _dispatcher.get().toChatty(userPrompt.content)
+                        )
+                }
             }
         }
+    }
+
+    private fun String.toPrompt(): UserPrompt {
+        val regex = Regex("^@([A-Za-z0-9_]+)\\s*(.*)", RegexOption.DOT_MATCHES_ALL)
+        val match = regex.matchEntire(this)
+        return if (match != null)
+            UserPrompt(
+                agentTag = match.groupValues[1],
+                content = match.groupValues[2].trim()
+            )
+        else
+            UserPrompt(
+                agentTag = "",
+                content = this
+            )
     }
 
     private fun ChatViewState.reduceWithAgentMessage(text: String, agentTag: String) {

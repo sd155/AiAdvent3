@@ -89,7 +89,7 @@ internal object ReviewerAgent {
     |   - Concise explanation of the issue
     |   - Kotlin-idiomatic fix suggestion
     """
-    const val TAG: String = "@Reviewer"
+    const val TAG: String = "Reviewer"
 
     fun create(llmApiKey: String, githubApiKey: String): AIAgent<String, String> {
         return AIAgent(

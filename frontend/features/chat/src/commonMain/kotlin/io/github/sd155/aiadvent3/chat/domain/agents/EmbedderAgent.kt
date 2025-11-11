@@ -8,7 +8,7 @@ import kotlinx.serialization.json.Json
 import java.io.File
 
 internal object EmbedderAgent {
-    const val TAG: String = "@Embedder"
+    const val TAG: String = "Embedder"
 
     internal suspend fun buildEmbeddings(llmApiKey: String) {
         val embedder = LLMEmbedder(
