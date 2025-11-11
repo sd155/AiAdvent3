@@ -113,7 +113,7 @@ internal object ChattyAgent : Agent<String, String> {
 //            promptExecutor = simpleOpenRouterExecutor(llmApiKey),
             promptExecutor = SingleLLMPromptExecutor(CloudruLlmClient(llmApiKey)),
 //            llmModel = OpenRouterFreeModels.Qwen3_235b_a22b_Moe,
-            llmModel = CloudruModels.MiniMax_M2,
+            llmModel = CloudruModels.Text2Text.MiniMax_M2,
             temperature = 0.7,
             systemPrompt = """
                 |You are a chatty joyful body.

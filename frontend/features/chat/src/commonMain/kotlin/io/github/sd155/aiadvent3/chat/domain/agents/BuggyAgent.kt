@@ -120,7 +120,7 @@ internal object BuggyAgent : Agent<String, String> {
                 |""".trimMargin(),
             promptExecutor = SingleLLMPromptExecutor(CloudruLlmClient(llmApiKey)),
 //            promptExecutor = simpleOpenRouterExecutor(llmApiKey),
-            llmModel = CloudruModels.Qwen3_Next_80b_a3b_Instruct,
+            llmModel = CloudruModels.Text2Text.Qwen3_Next_80b_a3b_Instruct,
 //            llmModel = OpenRouterFreeModels.Glm4_5_Air_Moe,
             temperature = 0.3,
             toolRegistry = tools,

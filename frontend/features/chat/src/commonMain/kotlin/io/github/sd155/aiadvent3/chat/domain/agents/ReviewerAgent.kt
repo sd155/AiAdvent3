@@ -146,7 +146,7 @@ internal object ReviewerAgent {
                 edge(commentCommit forwardTo nodeFinish)
             },
             promptExecutor = SingleLLMPromptExecutor(CloudruLlmClient(llmApiKey)),
-            llmModel = CloudruModels.Qwen3_Next_80b_a3b_Instruct,
+            llmModel = CloudruModels.Text2Text.Qwen3_Next_80b_a3b_Instruct,
             temperature = 0.3,
         ) {
             install(Tracing) {
