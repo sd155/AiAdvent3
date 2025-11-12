@@ -29,7 +29,7 @@ internal object EmbedderAgent {
                 .also { entries.addAll(it) }
         }
 
-        EmbeddingStorage().save(EmbeddingIndex(entries))
+        EmbeddingStorage().save("embedding_index", EmbeddingIndex(entries))
     }
 
     private fun chunk(file: File): List<SourceChunk> {
@@ -146,18 +146,18 @@ internal data class EmbeddingIndex(
 
 internal class EmbeddingStorage {
 
-    fun save(index: EmbeddingIndex) {
+    fun save(name: String, index: EmbeddingIndex) {
         val directory = File("./rag")
         if (!directory.exists()) {
             directory.mkdirs()
         }
-        val file = File(directory, "embedding_index.json")
+        val file = File(directory, "$name.json")
         val jsonContent = Json.encodeToString(index)
         file.writeText(jsonContent)
     }
 
-    fun load(): EmbeddingIndex {
-        val indexFile = File("./rag/embedding_index.json")
+    fun load(name: String): EmbeddingIndex {
+        val indexFile = File("./rag/$name.json")
         if (!indexFile.exists()) {
             throw IllegalStateException("Embedding index file does not exist after prepareIndex call")
         }

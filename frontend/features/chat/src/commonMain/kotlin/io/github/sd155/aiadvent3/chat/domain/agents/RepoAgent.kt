@@ -5,6 +5,7 @@ import ai.koog.agents.core.agent.entity.AIAgentGraphStrategy
 import ai.koog.agents.core.agent.entity.createStorageKey
 import ai.koog.agents.core.dsl.builder.forwardTo
 import ai.koog.agents.core.dsl.builder.strategy
+import ai.koog.agents.core.dsl.extension.clearHistory
 import ai.koog.agents.core.dsl.extension.nodeExecuteTool
 import ai.koog.agents.core.dsl.extension.onAssistantMessage
 import ai.koog.agents.core.dsl.extension.onToolCall
@@ -18,6 +19,9 @@ import ai.koog.prompt.executor.llms.SingleLLMPromptExecutor
 import ai.koog.prompt.message.Message
 import io.github.sd155.aiadvent3.chat.domain.providers.cloudru.CloudruLlmClient
 import io.github.sd155.aiadvent3.chat.domain.providers.cloudru.CloudruModels
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import java.io.File
 
 internal object RepoAgent {
@@ -102,16 +106,49 @@ internal object RepoAgent {
     }
 
     private fun ragStrategy(llmApiKey: String): AIAgentGraphStrategy<String, String> = strategy("WithRag") {
+        var project: String? = null
+
+        val findOutInitialData by node<String, String> { userPrompt ->
+            println("FIND_OUT IN :: $userPrompt")
+            val systemPrompt = """
+            |From the user's input, extract the project name. 
+            |The input may refer to them in natural language. 
+            |If project name can be confidently identified, output only: {"project": "project name"}
+            |If project name cannot be extracted reliably, output only the string:
+            |"Please include project name."
+            |""".trimIndent()
+            llm.writeSession {
+                val cachedPrompt = prompt
+                appendPrompt {
+                    clearHistory()
+                    system(systemPrompt)
+                    user(userPrompt)
+                }
+                val llmResponse = requestLLMWithoutTools()
+                try {
+                    val json = Json.parseToJsonElement(llmResponse.content.trim())
+                    if (json is JsonObject)
+                        project = json["project"]?.jsonPrimitive?.content
+                    prompt = cachedPrompt
+                    userPrompt
+                }
+                catch (e: Exception) {
+                    e.printStackTrace()
+                    "Please include project name."
+                }
+            }
+        }
+
         val loadData by node<String, String> { userPrompt ->
             val embedder = LLMEmbedder(
                 client = CloudruLlmClient(llmApiKey),
                 model = CloudruModels.Embeddings.Qwen3_Embedding_06b,
             )
-            val indexFile = File("./rag/embedding_index.json")
+            val indexFile = File("./rag/${project!!.lowercase()}.json")
             if (!indexFile.exists()) {
-                buildEmbeddings(embedder)
+                buildEmbeddings(project!!, embedder)
             }
-            val index = EmbeddingStorage().load()
+            val index = EmbeddingStorage().load(project!!.lowercase())
             val promptEmbedding = embedder.embed(userPrompt)
             val scoredChunks = index.entries
                 .map { indexEntry ->
@@ -134,15 +171,17 @@ internal object RepoAgent {
             }
         }
 
-        edge(nodeStart forwardTo loadData)
+        edge(nodeStart forwardTo findOutInitialData)
+        edge(findOutInitialData forwardTo nodeFinish onCondition {project.isNullOrBlank()})
+        edge(findOutInitialData forwardTo loadData onCondition {!project.isNullOrBlank()})
         edge(loadData forwardTo callLlm)
         edge(callLlm forwardTo nodeFinish transformed {it.content})
     }
 
-    private suspend fun buildEmbeddings(embedder: LLMEmbedder) {
+    private suspend fun buildEmbeddings(projectName: String, embedder: LLMEmbedder) {
         val entries = mutableListOf<IndexEntry>()
 
-        findSourceFiles().forEach { file ->
+        findSourceFiles(projectName).forEach { file ->
             println("FILE >> $file")
             chunk(file).map { chunk ->
                 println("CHUNK\n$chunk")
@@ -154,7 +193,7 @@ internal object RepoAgent {
                 .also { entries.addAll(it) }
         }
 
-        EmbeddingStorage().save(EmbeddingIndex(entries))
+        EmbeddingStorage().save(projectName.lowercase(), EmbeddingIndex(entries))
     }
 
     private fun chunk(file: File): List<SourceChunk> {
@@ -238,8 +277,8 @@ internal object RepoAgent {
         return chunks
     }
 
-    private fun findSourceFiles(): List<File> {
-        val currentDir = File("../../")
+    private fun findSourceFiles(projectName: String): List<File> {
+        val currentDir = File("/home/skydiver/Dev/Projects/$projectName")
         val kotlinFiles = mutableListOf<File>()
         currentDir.walkTopDown()
             .filter { it.isFile && it.extension.equals("kt", ignoreCase = true) }
