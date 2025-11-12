@@ -124,7 +124,7 @@ internal object EmbedderAgent {
 }
 
 @Serializable
-private data class SourceChunk(
+internal data class SourceChunk(
     val id: String,
     val filePath: String,
     val fileName: String,
@@ -134,17 +134,17 @@ private data class SourceChunk(
 )
 
 @Serializable
-private data class IndexEntry(
+internal data class IndexEntry(
     val chunk: SourceChunk,
     val embedding: List<Double>,
 )
 
 @Serializable
-private data class EmbeddingIndex(
+internal data class EmbeddingIndex(
     val entries: List<IndexEntry>
 )
 
-private class EmbeddingStorage {
+internal class EmbeddingStorage {
 
     fun save(index: EmbeddingIndex) {
         val directory = File("./rag")
@@ -154,5 +154,15 @@ private class EmbeddingStorage {
         val file = File(directory, "embedding_index.json")
         val jsonContent = Json.encodeToString(index)
         file.writeText(jsonContent)
+    }
+
+    fun load(): EmbeddingIndex {
+        val indexFile = File("./rag/embedding_index.json")
+        if (!indexFile.exists()) {
+            throw IllegalStateException("Embedding index file does not exist after prepareIndex call")
+        }
+
+        val jsonContent = indexFile.readText()
+        return Json.decodeFromString<EmbeddingIndex>(jsonContent)
     }
 }

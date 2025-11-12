@@ -9,6 +9,7 @@ import io.github.sd155.aiadvent3.chat.domain.agents.ChattyAgent
 import io.github.sd155.aiadvent3.chat.domain.agents.CliAgent
 import io.github.sd155.aiadvent3.chat.domain.agents.EmbedderAgent
 import io.github.sd155.aiadvent3.chat.domain.agents.GittyAgent
+import io.github.sd155.aiadvent3.chat.domain.agents.RepoAgent
 import io.github.sd155.aiadvent3.chat.domain.agents.ReviewerAgent
 import io.github.sd155.aiadvent3.chat.domain.agents.TaskSchedulerAgent
 import kotlinx.coroutines.Dispatchers
@@ -71,6 +72,16 @@ internal class ChatViewModel(llmApiKey: String, githubApiKey: String) : ViewMode
                         _state.value.reduceWithAgentMessage(
                             agentTag = tag,
                             text = _dispatcher.get().toEmbedder()
+                        )
+                    RepoAgent.NO_RAG_TAG ->
+                        _state.value.reduceWithAgentMessage(
+                            agentTag = tag,
+                            text = _dispatcher.get().toRepoNoRag(userPrompt.content)
+                        )
+                    RepoAgent.WITH_RAG_TAG ->
+                        _state.value.reduceWithAgentMessage(
+                            agentTag = tag,
+                            text = _dispatcher.get().toRepoWithRag(userPrompt.content)
                         )
                     else ->
                         _state.value.reduceWithAgentMessage(
