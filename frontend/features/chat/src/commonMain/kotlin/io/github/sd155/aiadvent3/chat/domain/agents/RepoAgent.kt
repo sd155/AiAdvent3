@@ -28,6 +28,7 @@ internal object RepoAgent {
     const val NO_RAG_TAG: String = "Repo"
     const val WITH_RAG_TAG: String = "RepoRag"
     private const val PROMPT = """You are senior kotlin developer. Your task is to describe and explain code to junior level developers."""
+    private const val SIMILARITY_THRESHOLD = 0.51
 
     suspend fun create(llmApiKey: String, useRag: Boolean): AIAgent<String, String> {
         val tools = McpToolRegistryProvider.fromTransport(
@@ -153,10 +154,10 @@ internal object RepoAgent {
             val scoredChunks = index.entries
                 .map { indexEntry ->
                     val diff = embedder.diff(promptEmbedding, Vector(indexEntry.embedding))
-                    Pair(indexEntry.chunk, diff)
+                    val similarity = 1.0 - diff
+                    Pair(indexEntry.chunk, similarity)
                 }
-                .sortedBy { it.second }
-                .take(5)
+                .filter { it.second >= SIMILARITY_THRESHOLD }
                 .map { it.first }
                 .joinToString("\n")
             "$userPrompt\n$scoredChunks"
