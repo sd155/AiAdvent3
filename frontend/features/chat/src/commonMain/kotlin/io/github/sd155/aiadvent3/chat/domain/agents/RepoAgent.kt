@@ -42,7 +42,7 @@ internal object RepoAgent {
             llmModel = CloudruModels.Text2Text.Qwen3_Next_80b_a3b_Instruct,
             temperature = 0.3,
             toolRegistry = if (useRag) ToolRegistry.EMPTY else tools,
-            systemPrompt = PROMPT
+            systemPrompt = if (useRag) "" else PROMPT
         )
     }
 
@@ -165,9 +165,19 @@ internal object RepoAgent {
 
         val callLlm by node<String, Message.Response> { promptWithData ->
             println("LLM IN :: $promptWithData")
+            val systemPrompt = """
+                |You are a code assistant that must answer questions based on the provided source code chunks.
+                |When responding, you must cite the specific source chunks you used to formulate your answer.
+                |For each source chunk you reference, provide the full file path and start line number only in this format:
+                |- ```[Citation: file_path_and_name.kt:line_number]```
+                |- If you use multiple chunks, list all citations.```[Citation: file1_path_and_name.kt:line_number, file2_path_and_name.kt:line_number, file3_path_and_name.kt:line_number]```
+                |- If you cannot answer the question based on the provided chunks, state that clearly.
+            """.trimIndent()
             llm.writeSession {
                 appendPrompt {
-                    user(promptWithData) }
+                    system(systemPrompt)
+                    user(promptWithData)
+                }
                 requestLLMWithoutTools()
             }
         }
