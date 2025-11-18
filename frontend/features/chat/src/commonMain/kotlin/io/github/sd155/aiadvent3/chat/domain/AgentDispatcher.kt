@@ -8,6 +8,8 @@ import io.github.sd155.aiadvent3.chat.domain.agents.GittyAgent
 import io.github.sd155.aiadvent3.chat.domain.agents.RepoAgent
 import io.github.sd155.aiadvent3.chat.domain.agents.ReviewerAgent
 import io.github.sd155.aiadvent3.chat.domain.agents.TaskSchedulerAgent
+import io.github.sd155.aiadvent3.chat.domain.agents.VoiceAgent
+import java.io.File
 
 internal class AgentDispatcher(private val _llmApiKey: String, private val _githubApiKey: String) {
 
@@ -54,5 +56,10 @@ internal class AgentDispatcher(private val _llmApiKey: String, private val _gith
     internal suspend fun toRepoWithRag(prompt: String): String {
         return RepoAgent.create(llmApiKey = _llmApiKey, useRag = true)
             .run(prompt)
+    }
+
+    internal suspend fun toVoice(voiceFile: File): String {
+        return VoiceAgent.create(llmApiKey = _llmApiKey)
+            .run(voiceFile)
     }
 }
