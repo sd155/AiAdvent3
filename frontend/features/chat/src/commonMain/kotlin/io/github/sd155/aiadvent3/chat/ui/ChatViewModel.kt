@@ -12,6 +12,7 @@ import io.github.sd155.aiadvent3.chat.domain.agents.GittyAgent
 import io.github.sd155.aiadvent3.chat.domain.agents.RepoAgent
 import io.github.sd155.aiadvent3.chat.domain.agents.ReviewerAgent
 import io.github.sd155.aiadvent3.chat.domain.agents.TaskSchedulerAgent
+import io.github.sd155.aiadvent3.chat.domain.agents.VoiceAgent
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -83,6 +84,17 @@ internal class ChatViewModel(llmApiKey: String, githubApiKey: String) : ViewMode
                             agentTag = tag,
                             text = _dispatcher.get().toRepoWithRag(userPrompt.content)
                         )
+                    VoiceAgent.tag -> {
+                        viewModelScope.launch(Dispatchers.Default) {
+                            VoiceAgent.progress.collect {
+                                if (it != null) _state.value.reduceWithUserMessage(it)
+                            }
+                        }
+                        _state.value.reduceWithAgentMessage(
+                            agentTag = tag,
+                            text = _dispatcher.get().toVoice(VoiceInput().capture())
+                        )
+                    }
                     else ->
                         _state.value.reduceWithAgentMessage(
                             agentTag = ChattyAgent.tag,
