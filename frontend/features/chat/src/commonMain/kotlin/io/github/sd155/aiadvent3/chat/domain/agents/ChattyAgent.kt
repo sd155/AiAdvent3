@@ -56,9 +56,30 @@ internal object ChattyAgent : Agent<String, String> {
             ?.let { _json.decodeFromString<List<Context>>(it)}
             ?: emptyList()
 
+    fun loadUserMemory(): String? =
+        File("user.mem")
+            .let { if (it.exists()) it else null }
+            ?.readText()
+            ?.let { if (it.isBlank()) null else it }
+            ?.replace("\n", "\n- ")
+            ?.let { "Facts about user:\n$it"}
+
     override suspend fun create(llmApiKey: String): AIAgent<String, String> {
         return AIAgent(
             strategy = strategy("chat") {
+
+                val loadUserPortrait by node<String, String> { input ->
+                    loadUserMemory()
+                        ?.let { userMemory ->
+                            llm.writeSession {
+                                appendPrompt {
+                                    assistant(userMemory)
+                                }
+                            }
+                        }
+                    input
+                }
+
                 val loadHistory by node<String, String> { input ->
                     llm.writeSession {
                         if (_context.value.isEmpty()) {
@@ -104,7 +125,8 @@ internal object ChattyAgent : Agent<String, String> {
                     input
                 }
 
-                edge(nodeStart forwardTo loadHistory)
+                edge(nodeStart forwardTo loadUserPortrait)
+                edge(loadUserPortrait forwardTo loadHistory)
                 edge(loadHistory forwardTo compressHistory)
                 edge(compressHistory forwardTo nodeCallLLM)
                 edge(nodeCallLLM forwardTo saveHistory transformed {it.content})
@@ -118,6 +140,7 @@ internal object ChattyAgent : Agent<String, String> {
             systemPrompt = """
                 |You are a chatty joyful body.
                 |Talk with user in ironically manner, use hi grade humor, sometimes be a little shady.
+                |Use facts about user to answer more personally.
                 |""".trimMargin(),
         ) {
             install(Tracing) {
